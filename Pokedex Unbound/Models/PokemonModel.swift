@@ -9,9 +9,13 @@
 import Foundation
 
 struct Pokemon: Codable, Identifiable, Equatable{
-    var id:UUID = UUID()
+    let id = UUID()
     let name: String
     let url: String
+    
+    enum CodingKeys: String, CodingKey {
+        case name, url
+    }
     
     static var samplePokemon = Pokemon(name: "bulbasaur", url: "https://pokeapi.co/api/v2/pokemon/1/")
 }
