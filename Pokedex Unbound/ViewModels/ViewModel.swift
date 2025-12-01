@@ -10,7 +10,10 @@ import SwiftUI
 import Combine
 
 
-final class ViewModel: ObservableObject{
+
+
+@MainActor
+final class ViewModel: ObservableObject {
     private let pokemonManager = PokemonManager()
     
     @Published var pokemonList = [Pokemon]()
@@ -18,13 +21,19 @@ final class ViewModel: ObservableObject{
     @Published var searchText = ""
     
     var filteredPokemon: [Pokemon] {
-        return searchText == "" ? pokemonList : pokemonList.filter{
-            $0.name.contains(searchText.lowercased())
-        }
+        searchText.isEmpty
+            ? pokemonList
+            : pokemonList.filter { $0.name.lowercased().contains(searchText.lowercased()) }
     }
     
-    init(){
+    init() {
         self.pokemonList = pokemonManager.getPokemon()
+    }
+    
+    func getDetails(pokemon: Pokemon) {
+        if let detail = pokemonManager.getDetailedPokemon(name: pokemon.url) {
+            self.pokemonDetails = detail
+        }
     }
     
     func getPokemonIndex(pokemon: Pokemon) -> Int {
@@ -34,23 +43,35 @@ final class ViewModel: ObservableObject{
         return 0
     }
     
-    func getDetails(pokemon: Pokemon) {
-        let id = getPokemonIndex(pokemon: pokemon)
-        
-        self.pokemonDetails = DetailPokemon(id: 0, height: 0, weight: 0)
-        
-        pokemonManager.getDetailedPokemon(id: id) { data in
-            DispatchQueue.main.async {
-                self.pokemonDetails = data
-            }
-        }
-    }
-    
     func formatHW(value: Int) -> String {
         let dValue = Double(value)
         let string = String(format: "%.2f", dValue / 10)
-        
+    
         return string
     }
-    
+}
+
+
+
+extension ViewModel {
+    func loadLocalDetails(for pokemon: Pokemon) {
+        // Format the index with 3 digits (001, 025, 152, etc.)
+        let index = getPokemonIndex(pokemon: pokemon)
+        let formattedIndex = String(format: "%03d", index)
+        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        
+        if let url = Bundle.main.url(forResource: fileName, withExtension: "json") {
+            do {
+                let data = try Data(contentsOf: url)
+                let decoded = try JSONDecoder().decode(DetailPokemon.self, from: data)
+                DispatchQueue.main.async {
+                    self.pokemonDetails = decoded
+                }
+            } catch {
+                print("Decoding error for \(fileName): \(error)")
+            }
+        } else {
+            print("File not found for \(fileName).json in Data/pokemon_data")
+        }
+    }
 }

@@ -27,8 +27,40 @@ struct PokemonPage: Codable{
 }
 
 
-struct DetailPokemon: Codable{
+struct DetailPokemon: Codable {
     let id: Int
+    let name: String
     let height: Int
     let weight: Int
+    let abilities: [Ability]
+    let moves: [Move]
+    let sprites: Sprites
+    let stats: [Stat]
+    let types: [TypeEntry]
+    let location_area_encounters: [LocationAreaEncounter]?
+
+    struct Ability: Codable {
+        let ability: NamedAPIResource
+    }
+    struct Move: Codable {
+        let move: NamedAPIResource
+    }
+    struct Sprites: Codable {
+        let front_default: String?
+    }
+    struct Stat: Codable {
+        let base_stat: Int
+        let stat: NamedAPIResource
+    }
+    struct TypeEntry: Codable {
+        let slot: Int
+        let type: NamedAPIResource
+    }
+    struct NamedAPIResource: Codable {
+        let name: String
+        let url: String
+    }
+    struct LocationAreaEncounter: Codable {
+        let location_area: NamedAPIResource
+    }
 }

@@ -6,44 +6,49 @@
 //
 
 import Foundation
+import UIKit
+
+
 
 
 extension Bundle {
-    func decode<T:Decodable>(file:String) -> T {
-        guard let url = self.url(forResource: file, withExtension: nil) else{
-            fatalError("Could not find \(file) in bundle")
+    
+    func decode<T: Decodable>(file: String) -> T {
+
+        guard let url = self.url(forResource: file, withExtension: "json", subdirectory: nil) else {
+            fatalError("Could not find \(file).json in bundle")
         }
         
-        guard let data = try? Data(contentsOf: url) else{
-            fatalError("Could not load \(file) from bundle")
+        guard let data = try? Data(contentsOf: url) else {
+            fatalError("Could not load \(file).json from bundle")
         }
         
         let decoder = JSONDecoder()
-        
-        guard let loadedData = try? decoder.decode(T.self, from: data) else{
-            fatalError("Could not decode \(file) from bundle")
+        guard let loadedData = try? decoder.decode(T.self, from: data) else {
+            fatalError("Could not decode \(file).json from bundle")
         }
-        
         return loadedData
     }
     
-    func fetchData<T: Decodable>(url: String, model: T.Type, completion:@escaping(T) -> (), failure:@escaping(Error) -> ()) {
-            guard let url = URL(string: url) else { return }
-            
-            URLSession.shared.dataTask(with: url) { (data, response, error) in
-                guard let data = data else {
-                    // If there is an error, return the error.
-                    if let error = error { failure(error) }
-                    return }
-                
-                do {
-                    let serverData = try JSONDecoder().decode(T.self, from: data)
-                    // Return the data successfully from the server
-                    completion((serverData))
-                } catch {
-                    // If there is an error, return the error.
-                    failure(error)
-                }
-            }.resume()
+    func decodeOptional<T: Decodable>(file: String) -> T? {
+        // To help debugging
+        guard let url = self.url(forResource: file, withExtension: "json", subdirectory: nil) else {
+            print("File not found: \(file).json")
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else {
+            print("Could not load data from: \(file).json")
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+    
+    func image(file: String) -> UIImage? {
+        guard let url = self.url(forResource: file, withExtension: "png", subdirectory: nil) else {
+            print("Image not found: \(file).png")
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return UIImage(data: data)
     }
 }
