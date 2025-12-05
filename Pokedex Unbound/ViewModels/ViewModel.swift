@@ -20,14 +20,40 @@ final class ViewModel: ObservableObject {
     @Published var pokemonDetails: DetailPokemon?
     @Published var searchText = ""
     
+    // Cache to quickly reach translated names
+    private var translatedNamesCache: [String: (nameJp: String?, nameFr: String?)] = [:]
+    
     var filteredPokemon: [Pokemon] {
-        searchText.isEmpty
-            ? pokemonList
-            : pokemonList.filter { $0.name.lowercased().contains(searchText.lowercased()) }
+        if searchText.isEmpty{
+            return pokemonList
+        }
+        
+        let searchLower = searchText.lowercased()
+        
+        return pokemonList.filter { pokemon in
+            if pokemon.name.lowercased().contains(searchLower){
+                return true
+            }
+            
+            let translatedNames = getTranslatedNames(for: pokemon)
+            
+            if let nameJp = translatedNames.nameJp,
+               nameJp.lowercased().contains(searchLower){
+                return true
+            }
+            
+            if let nameFr = translatedNames.nameFr,
+               nameFr.lowercased().contains(searchLower){
+                return true
+            }
+            
+            return false
+        }
     }
     
     init() {
         self.pokemonList = pokemonManager.getPokemon()
+        preloadTranslatedNames()
     }
     
     func getDetails(pokemon: Pokemon) {
@@ -49,6 +75,40 @@ final class ViewModel: ObservableObject {
     
         return string
     }
+    
+    private func getTranslatedNames(for pokemon: Pokemon) -> (nameJp: String?, nameFr: String?){
+        let key = pokemon.name
+        
+        if let cached = translatedNamesCache[key]{
+            return cached
+        }
+        
+        let index = getPokemonIndex(pokemon: pokemon)
+        let formattedIndex = String(format: "%03d", index)
+        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode(DetailPokemon.self, from: data) else{
+            translatedNamesCache[key] = (nil,nil)
+            return (nil,nil)
+        }
+        
+        let names = (nameJp: decoded.nameJp, nameFr: decoded.nameFr)
+        translatedNamesCache[key] = names
+        return names
+    }
+    
+    private func preloadTranslatedNames() {
+        Task { [weak self] in
+            guard let self else { return }
+            for pokemon in self.pokemonList {
+                _ = self.getTranslatedNames(for: pokemon)
+            }
+            print("Preloaded \(self.translatedNamesCache.count) translated names")
+        }
+    }
+    
 }
 
 
@@ -75,3 +135,4 @@ extension ViewModel {
         }
     }
 }
+

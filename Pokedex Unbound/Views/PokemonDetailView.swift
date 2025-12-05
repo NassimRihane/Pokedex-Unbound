@@ -21,6 +21,11 @@ struct PokemonDetailView: View {
                 // Details from local files
                 if let details = vm.pokemonDetails {
                     VStack(spacing: 10) {
+                        HStack(spacing:20){
+                            InfoCard(label:"English", value: "\(pokemon.name.capitalized)")
+                            InfoCard(label:"Japanese", value: "\(details.nameJp)")
+                            InfoCard(label:"French", value: "\(details.nameFr)")
+                        }
                         HStack(spacing: 30){
                             InfoCard(label:"ID", value: "\(details.id)")
                             InfoCard(label:"Height", value: "\(vm.formatHW(value: details.height)) m")

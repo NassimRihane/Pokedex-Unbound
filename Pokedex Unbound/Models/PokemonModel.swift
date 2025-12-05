@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct Pokemon: Codable, Identifiable, Equatable{
+struct Pokemon: Codable, Identifiable, Equatable {
     let id = UUID()
     let name: String
     let url: String
@@ -20,46 +20,70 @@ struct Pokemon: Codable, Identifiable, Equatable{
     static var samplePokemon = Pokemon(name: "bulbasaur", url: "https://pokeapi.co/api/v2/pokemon/1/")
 }
 
-struct PokemonPage: Codable{
+struct PokemonPage: Codable {
     let count: Int
     let next: String
     let results: [Pokemon]
 }
 
-
 struct DetailPokemon: Codable {
     let id: Int
     let name: String
+    let nameJp: String
+    let nameFr: String
     let height: Int
     let weight: Int
     let abilities: [Ability]
-    let moves: [Move]
+    let moves: [MoveEntry]
     let sprites: Sprites
     let stats: [Stat]
     let types: [TypeEntry]
     let location_area_encounters: [LocationAreaEncounter]?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, height, weight, abilities, moves, sprites, stats, types, location_area_encounters
+        case nameJp = "name-jp"
+        case nameFr = "name-fr"
+    }
 
     struct Ability: Codable {
         let ability: NamedAPIResource
     }
-    struct Move: Codable {
-        let move: NamedAPIResource
+    
+    struct MoveEntry: Codable {
+        let move: MoveDetails
+        let level_learned_at: Int
+        let move_learn_method: String
+        let version_group: String
     }
+    
+    struct MoveDetails: Codable {
+        let name: String
+        let type: String?
+        let power: Int?
+        let pp: Int?
+        let accuracy: Int?
+    }
+    
     struct Sprites: Codable {
         let front_default: String?
     }
+    
     struct Stat: Codable {
         let base_stat: Int
         let stat: NamedAPIResource
     }
+    
     struct TypeEntry: Codable {
         let slot: Int
         let type: NamedAPIResource
     }
+    
     struct NamedAPIResource: Codable {
         let name: String
         let url: String
     }
+    
     struct LocationAreaEncounter: Codable {
         let location_area: NamedAPIResource
     }
