@@ -16,11 +16,11 @@ struct ContentView: View {
     ]
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 LazyVGrid(columns: adaptativeColumns, spacing: 10){
                     ForEach(vm.filteredPokemon){ pokemon in
-                        NavigationLink(destination: PokemonDetailView(pokemon: pokemon)){
+                        NavigationLink(destination: PokemonTabView(pokemon: pokemon)){
                             PokemonView(pokemon: pokemon)
                         }
                     }

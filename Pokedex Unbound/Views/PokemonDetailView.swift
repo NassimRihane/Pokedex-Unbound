@@ -79,18 +79,18 @@ struct PokemonDetailView: View {
                     ProgressView("Loading details...")
                 }
             }
-            .navigationTitle(pokemon.name.capitalized)
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear(){
-                vm.pokemonDetails = nil
-                vm.loadLocalDetails(for: pokemon)
-            }
-            .onDisappear{
-                vm.pokemonDetails = nil
-            }
+        //    .navigationTitle(pokemon.name.capitalized)
+        //    .navigationBarTitleDisplayMode(.inline)
+        //    .onAppear(){
+        //        vm.pokemonDetails = nil
+        //        vm.loadLocalDetails(for: pokemon)
+        //    }
+        //    .onDisappear{
+        //        vm.pokemonDetails = nil
+        //    }
         }
-        .navigationTitle(pokemon.name.capitalized)
-        .navigationBarTitleDisplayMode(.inline)
+        //.navigationTitle(pokemon.name.capitalized)
+        //.navigationBarTitleDisplayMode(.inline)
     }
 }
 

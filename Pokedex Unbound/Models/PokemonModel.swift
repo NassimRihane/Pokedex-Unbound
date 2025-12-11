@@ -88,3 +88,9 @@ struct DetailPokemon: Codable {
         let location_area: NamedAPIResource
     }
 }
+
+extension DetailPokemon.MoveEntry{
+    var uniqueID : String{
+        return "\(move.name)_\(move_learn_method)_\(level_learned_at)_\(version_group)"
+    }
+}
