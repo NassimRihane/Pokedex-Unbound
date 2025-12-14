@@ -103,8 +103,32 @@ struct MoveCard: View{
             
         }
         .padding()
-        .background(Color.gray.opacity(0.1)) // Do the background of the color of the stat
+        .background(typeColor(for: moveEntry.move.type ?? "normal").opacity(0.3)) // Do the background of the color of the stat
         .cornerRadius(10)
+    }
+    
+    private func typeColor(for type: String) -> Color {
+            switch type.lowercased() {
+            case "normal": return Color.gray
+            case "fire": return Color.red
+            case "water": return Color.blue
+            case "electric": return Color.yellow
+            case "grass": return Color.green
+            case "ice": return Color.cyan
+            case "fighting": return Color.orange
+            case "poison": return Color.purple
+            case "ground": return Color.brown
+            case "flying": return Color.blue.opacity(0.7)
+            case "psychic": return Color.pink
+            case "bug": return Color.green.opacity(0.7)
+            case "rock": return Color.brown.opacity(0.7)
+            case "ghost": return Color.purple.opacity(0.7)
+            case "dragon": return Color.indigo
+            case "dark": return Color.black
+            case "steel": return Color.gray.opacity(0.7)
+            case "fairy": return Color.pink.opacity(0.7)
+            default: return Color.gray
+        }
     }
 }
 
