@@ -2,190 +2,208 @@ import requests
 import json
 import os
 import time
+from collections import defaultdict
 
 # === Configuration ===
 OUTPUT_DIR = "pokemon_data"
-SPRITES_DIR = "sprites"
-START_ID = 1  # Change cette valeur pour reprendre à un ID spécifique
+START_ID = 1
 MAX_ID = 905
-DOWNLOAD_SPRITES = False  # passe à False si tu veux juste les JSON
-SKIP_EXISTING = True  # Passe les Pokémon déjà téléchargés
 
-# === Création des dossiers ===
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-if DOWNLOAD_SPRITES:
-    os.makedirs(SPRITES_DIR, exist_ok=True)
+# Mapping of versions to generations
+VERSION_TO_GENERATION = {
+    # Gen 1
+    "red": "Generation I",
+    "blue": "Generation I",
+    "yellow": "Generation I",
+    # Gen 2
+    "gold": "Generation II",
+    "silver": "Generation II",
+    "crystal": "Generation II",
+    # Gen 3
+    "ruby": "Generation III",
+    "sapphire": "Generation III",
+    "emerald": "Generation III",
+    "firered": "Generation III",
+    "leafgreen": "Generation III",
+    # Gen 4
+    "diamond": "Generation IV",
+    "pearl": "Generation IV",
+    "platinum": "Generation IV",
+    "heartgold": "Generation IV",
+    "soulsilver": "Generation IV",
+    # Gen 5
+    "black": "Generation V",
+    "white": "Generation V",
+    "black-2": "Generation V",
+    "white-2": "Generation V",
+    # Gen 6
+    "x": "Generation VI",
+    "y": "Generation VI",
+    "omega-ruby": "Generation VI",
+    "alpha-sapphire": "Generation VI",
+    # Gen 7
+    "sun": "Generation VII",
+    "moon": "Generation VII",
+    "ultra-sun": "Generation VII",
+    "ultra-moon": "Generation VII",
+    # Gen 8
+    "sword": "Generation VIII",
+    "shield": "Generation VIII",
+}
 
-# === Fonction pour vérifier si un Pokémon existe déjà ===
-def pokemon_already_exists(pokemon_id, pokemon_name=None):
-    """Vérifie si le fichier JSON du Pokémon existe déjà"""
-    # Chercher par ID avec pattern XXX_*.json
-    pattern = f"{pokemon_id:03d}_"
-    for filename in os.listdir(OUTPUT_DIR):
-        if filename.startswith(pattern) and filename.endswith(".json"):
-            return True
-    return False
-
-# === Fonction pour récupérer les noms traduits ===
-def get_pokemon_names(species_url):
-    """Récupère les noms en japonais (roomaji) et français depuis species"""
-    try:
-        response = requests.get(species_url)
-        response.raise_for_status()
-        species_data = response.json()
-        
-        names = {"name-jp": None, "name-fr": None}
-        
-        for name_entry in species_data.get("names", []):
-            lang = name_entry["language"]["name"]
-            if lang == "roomaji":
-                names["name-jp"] = name_entry["name"]
-            elif lang == "fr":
-                names["name-fr"] = name_entry["name"]
-        
-        return names
-    except Exception as e:
-        print(f"  ⚠️ Erreur lors de la récupération des noms: {e}")
-        return {"name-jp": None, "name-fr": None}
-
-# === Fonction pour récupérer les détails d'une attaque ===
-def get_move_details(move_url):
-    """Récupère les détails d'une attaque depuis son URL"""
-    try:
-        response = requests.get(move_url)
-        response.raise_for_status()
-        move_data = response.json()
-        
-        return {
-            "name": move_data["name"],
-            "type": move_data["type"]["name"] if move_data.get("type") else None,
-            "power": move_data.get("power"),
-            "pp": move_data.get("pp"),
-            "accuracy": move_data.get("accuracy")
-        }
-    except Exception as e:
-        print(f"  ⚠️ Erreur lors de la récupération de l'attaque {move_url}: {e}")
-        return None
-
-# === Fonction pour filtrer les attaques ===
-def filter_moves(moves_data):
-    """Filtre les attaques selon les critères :
-    - Gen 8 (Sword-Shield) en priorité, sinon Gen 7 (Ultra Sun/Moon)
-    - Seulement level-up et machine
+def process_encounters(encounter_data):
     """
-    filtered_moves = []
+    Process the encounter data and group by generations.
+    If methods are identical between versions in same generation,
+    it fuses it the same entry.
+    """
+    if not encounter_data:
+        return {"message": "No encounter data available"}
     
-    for move_entry in moves_data:
-        move_name = move_entry["move"]["name"]
-        move_url = move_entry["move"]["url"]
-        version_details = move_entry["version_group_details"]
+    # Group by generation, then location
+    generation_data = defaultdict(lambda: defaultdict(list))
+    
+    for location_entry in encounter_data:
+        location_name = location_entry["location_area"]["name"]
         
-        # Chercher dans Sword-Shield (Gen 8)
-        gen8_moves = [
-            detail for detail in version_details
-            if detail["version_group"]["name"] == "sword-shield"
-            and detail["move_learn_method"]["name"] in ["level-up", "machine"]
-        ]
+        # Group the versions by generation for this location
+        version_encounters = defaultdict(list)
         
-        # Si pas trouvé, chercher dans Ultra Sun/Moon (Gen 7)
-        gen7_moves = [
-            detail for detail in version_details
-            if detail["version_group"]["name"] == "ultra-sun-ultra-moon"
-            and detail["move_learn_method"]["name"] in ["level-up", "machine"]
-        ]
-        
-        # Prendre Gen 8 en priorité, sinon Gen 7
-        selected_moves = gen8_moves if gen8_moves else gen7_moves
-        
-        # Ajouter chaque version filtrée
-        for detail in selected_moves:
-            # Récupérer les détails de l'attaque
-            move_details = get_move_details(move_url)
+        for version_detail in location_entry["version_details"]:
+            version_name = version_detail["version"]["name"]
+            generation = VERSION_TO_GENERATION.get(version_name, "Unknown")
             
-            if move_details:
-                filtered_moves.append({
-                    "move": move_details,
-                    "level_learned_at": detail["level_learned_at"],
-                    "move_learn_method": detail["move_learn_method"]["name"],
-                    "version_group": detail["version_group"]["name"]
+            # Extract the encounter details
+            encounters = []
+            for encounter in version_detail["encounter_details"]:
+                encounters.append({
+                    "method": encounter["method"]["name"],
+                    "min_level": encounter["min_level"],
+                    "max_level": encounter["max_level"],
+                    "chance": encounter["chance"]
                 })
+            
+            version_encounters[generation].append({
+                "version": version_name,
+                "encounters": encounters
+            })
+        
+        # For each generation, try to merge them
+        for generation, version_list in version_encounters.items():
+            if len(version_list) > 1:
+                # Check if all versions have the same type of encounter
+                first_encounters = sorted(
+                    [json.dumps(e, sort_keys=True) for e in version_list[0]["encounters"]]
+                )
+                all_same = all(
+                    sorted([json.dumps(e, sort_keys=True) for e in v["encounters"]]) == first_encounters
+                    for v in version_list
+                )
                 
-            # Pause pour éviter de surcharger l'API
-            time.sleep(0.1)
+                if all_same:
+                    # Merge in the same entry for all versions
+                    versions = [v["version"] for v in version_list]
+                    generation_data[generation][location_name].append({
+                        "versions": versions,
+                        "encounters": version_list[0]["encounters"]
+                    })
+                else:
+                    # Keep separated
+                    for version_info in version_list:
+                        generation_data[generation][location_name].append({
+                            "versions": [version_info["version"]],
+                            "encounters": version_info["encounters"]
+                        })
+            else:
+                # Only one version
+                generation_data[generation][location_name].append({
+                    "versions": [version_list[0]["version"]],
+                    "encounters": version_list[0]["encounters"]
+                })
     
-    return filtered_moves
+    # Convert in final format
+    result = {}
+    for generation, locations in generation_data.items():
+        result[generation] = dict(locations)
+    
+    return result if result else {"message": "No encounter data available"}
 
-# === Boucle principale ===
-print(f"Starting extraction from ID {START_ID} to {MAX_ID}")
-print(f"Skip existing: {SKIP_EXISTING}")
+def update_pokemon_encounters(pokemon_id):
+    """
+    Update only the data for existing Pokemon
+    """
+    # Find the existing file
+    pattern = f"{pokemon_id:03d}_"
+    filename = None
+    for fname in os.listdir(OUTPUT_DIR):
+        if fname.startswith(pattern) and fname.endswith(".json"):
+            filename = fname
+            break
+    
+    if not filename:
+        print(f"  x File not found for ID {pokemon_id}")
+        return False
+    
+    filepath = os.path.join(OUTPUT_DIR, filename)
+    
+    # Charge the existing JSON
+    with open(filepath, "r", encoding="utf-8") as f:
+        pokemon_data = json.load(f)
+    
+    pokemon_name = pokemon_data["name"]
+    print(f"  Updating encounters for {pokemon_name}...")
+    
+    # Get new encounter data
+    pokemon_id_from_data = pokemon_data["id"]
+    encounter_url = f"https://pokeapi.co/api/v2/pokemon/{pokemon_id_from_data}/encounters"
+    
+    try:
+        response = requests.get(encounter_url)
+        response.raise_for_status()
+        encounter_data = response.json()
+        
+        # Process and group encounters
+        processed_encounters = process_encounters(encounter_data)
+        
+        # Update
+        pokemon_data["location_encounters_by_generation"] = processed_encounters
+        
+        # Save
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(pokemon_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"  ✓ Encounters updated for {pokemon_name}")
+        return True
+        
+    except Exception as e:
+        print(f"  x Error updating encounters: {e}")
+        return False
+
+# === Main loop ===
+print(f"Updating encounter data from ID {START_ID} to {MAX_ID}")
 print("-" * 50)
+
+success_count = 0
+error_count = 0
 
 for pokemon_id in range(START_ID, MAX_ID + 1):
     try:
-        # Vérifier si le Pokémon existe déjà
-        if SKIP_EXISTING and pokemon_already_exists(pokemon_id):
-            print(f"⏭️  Pokémon {pokemon_id} already exists, skipping...")
-            continue
+        print(f"Processing Pokémon {pokemon_id}...")
         
-        print(f"Fetching Pokémon {pokemon_id}...")
+        if update_pokemon_encounters(pokemon_id):
+            success_count += 1
+        else:
+            error_count += 1
         
-        # Données principales
-        url = f"https://pokeapi.co/api/v2/pokemon/{pokemon_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Récupérer les noms traduits depuis species
-        print(f"  Fetching translated names for {data['name']}...")
-        species_url = data["species"]["url"]
-        translated_names = get_pokemon_names(species_url)
-        
-        # Filtrer les attaques
-        print(f"  Filtering moves for {data['name']}...")
-        filtered_moves = filter_moves(data["moves"])
-        print(f"  ✓ {len(filtered_moves)} moves retained (from {len(data['moves'])} total)")
-        
-        # Informations demandées
-        pokemon_info = {
-            "id": data["id"],
-            "name": data["name"],
-            "name-jp": translated_names["name-jp"],
-            "name-fr": translated_names["name-fr"],
-            "height": data["height"],
-            "weight": data["weight"],
-            "abilities": data["abilities"],
-            "moves": filtered_moves,  # Attaques filtrées
-            "sprites": data["sprites"],
-            "stats": data["stats"],
-            "types": data["types"],
-        }
-        
-        # Lieux d'apparition
-        encounter_url = data["location_area_encounters"]
-        encounter_data = requests.get(encounter_url).json()
-        pokemon_info["location_area_encounters"] = encounter_data
-        
-        # Sauvegarde JSON local
-        filename = f"{OUTPUT_DIR}/{pokemon_id:03d}_{data['name']}.json"
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(pokemon_info, f, ensure_ascii=False, indent=2)
-        
-        print(f"  ✓ Saved to {filename}")
-        
-        # Téléchargement sprite principal (optionnel)
-        if DOWNLOAD_SPRITES and data["sprites"]["front_default"]:
-            sprite_url = data["sprites"]["front_default"]
-            img_data = requests.get(sprite_url).content
-            sprite_filename = f"{SPRITES_DIR}/{pokemon_id:03d}_{data['name']}.png"
-            with open(sprite_filename, "wb") as img_file:
-                img_file.write(img_data)
-            print(f"  ✓ Sprite saved")
-        
-        # Petite pause pour éviter de saturer l'API
-        time.sleep(0.5)
+        # Pause to avoid overloading the API
+        time.sleep(0.3)
         
     except Exception as e:
-        print(f"❌ Erreur pour Pokémon {pokemon_id}: {e}")
+        print(f"x Error for Pokémon {pokemon_id}: {e}")
+        error_count += 1
         continue
 
-print("✅ Extraction terminée !")
+print("-" * 50)
+print(f"v Update finished")
+print(f"   Success: {success_count}")
+print(f"   Errors: {error_count}")

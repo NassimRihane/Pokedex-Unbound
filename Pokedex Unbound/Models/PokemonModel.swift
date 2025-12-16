@@ -38,12 +38,13 @@ struct DetailPokemon: Codable {
     let sprites: Sprites
     let stats: [Stat]
     let types: [TypeEntry]
-    let location_area_encounters: [LocationAreaEncounter]?
+    let location_encounters_by_generation: LocationEncountersByGeneration?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, height, weight, abilities, moves, sprites, stats, types, location_area_encounters
+        case id, name, height, weight, abilities, moves, sprites, stats, types
         case nameJp = "name-jp"
         case nameFr = "name-fr"
+        case location_encounters_by_generation
     }
 
     struct Ability: Codable {
