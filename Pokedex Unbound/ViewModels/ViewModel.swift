@@ -109,6 +109,12 @@ final class ViewModel: ObservableObject {
         }
     }
     
+    func clearPokemonDetails() {
+        DispatchQueue.main.async{
+            self.pokemonDetails = nil
+        }
+    }
+    
 }
 
 

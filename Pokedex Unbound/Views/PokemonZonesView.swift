@@ -9,11 +9,31 @@ import SwiftUI
 
 // New Data structures
 struct LocationEncountersByGeneration: Codable {
-    let generationData: [String: GenerationEncounters]
+    let generationData: [String: GenerationEncounters]?
+    let message: String?
     
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        generationData = try container.decode([String: GenerationEncounters].self)
+        
+        if let generations = try? container.decode([String: GenerationEncounters].self){
+            self.generationData = generations
+            self.message = nil
+        }
+        
+        else if let messageDict = try? container.decode([String: String].self),
+                let msg = messageDict["message"]{
+            self.generationData = nil
+            self.message = msg
+        }
+        
+        else{
+            self.generationData = nil
+            self.message = "No data available"
+        }
+    }
+    
+    var hasData: Bool{
+        return generationData  != nil && !(generationData?.isEmpty ?? true)
     }
 }
 
@@ -49,24 +69,24 @@ struct PokemonZonesView: View {
             VStack(spacing: 12) {
                 
                 if let details = vm.pokemonDetails {
-                    if let encountersData = details.location_encounters_by_generation {
-                        
-                       
-                        let sortedGenerations = encountersData.generationData.keys.sorted { gen1, gen2 in
-                            let num1 = extractGenerationNumber(from: gen1)
-                            let num2 = extractGenerationNumber(from: gen2)
-                            return num1 < num2
-                        }
-                        
-                       // Uses the accordion architecture implemented below
-                        ForEach(sortedGenerations, id: \.self) { generation in
-                            if let genData = encountersData.generationData[generation] {
-                                GenerationAccordion(
-                                    generationName: generation,
-                                    locations: genData.locations
-                                )
+                    if let encountersData = details.location_encounters_by_generation,
+                        encountersData.hasData,
+                        let generations = encountersData.generationData{
+                            let sortedGenerations = generations.keys.sorted { gen1, gen2 in
+                                let num1 = extractGenerationNumber(from: gen1)
+                                let num2 = extractGenerationNumber(from: gen2)
+                                return num1 < num2
                             }
-                        }
+                            
+                            // Uses the accordion architecture implemented below
+                            ForEach(sortedGenerations, id: \.self) { generation in
+                                if let genData = generations[generation] {
+                                    GenerationAccordion(
+                                        generationName: generation,
+                                        locations: genData.locations
+                                    )
+                                }
+                            }
                         
                     } else {
                         // No zone available
@@ -118,10 +138,17 @@ struct GenerationAccordion: View {
                 }
             }) {
                 HStack {
-                    Image(systemName: "gamecontroller.fill") // Replace by custom icon
-                        .foregroundColor(.red)
-                        .font(.title3)
-                    
+                    if let genImage = loadGenerationImage(){
+                        Image(uiImage: genImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 30, height: 30)
+                    } else{
+                        Image(systemName: "gamecontroller.fill") // Replace by custom icon
+                            .foregroundColor(.red)
+                            .font(.title3)
+                    }
+                        
                     Text(generationName)
                         .font(.headline)
                         .foregroundColor(.primary)
@@ -165,6 +192,34 @@ struct GenerationAccordion: View {
             }
         }
     }
+    
+    private func loadGenerationImage() -> UIImage? {
+        let generationNumber = extractGenerationNumber(from: generationName)
+        let fileName = "gen_\(generationNumber)"
+        
+        if let url = Bundle.main.url(forResource: fileName, withExtension: "png"),
+           let imageData = try? Data(contentsOf: url),
+           let uiImage = UIImage(data: imageData){
+            return uiImage
+        }
+    
+        print("! Generation image not found: \(fileName).png")
+        return nil
+    }
+    
+    
+    private func extractGenerationNumber(from generation: String) -> Int {
+        let romanToInt = [
+            "I": 1, "II": 2, "III": 3, "IV": 4, "V": 5,
+            "VI": 6, "VII": 7, "VIII": 8, "IX": 9
+        ]
+        
+        let components = generation.split(separator: " ")
+        if components.count == 2, let roman = components.last {
+            return romanToInt[String(roman)] ?? 999
+        }
+        return 999
+    }
 }
 
 
@@ -191,7 +246,7 @@ struct LocationCard: View {
                             Text(version.capitalized)
                                 .font(.caption)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.white)
+                                .foregroundColor(versionFont(for: version))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
                                 .background(versionColor(for: version))
@@ -247,9 +302,12 @@ struct LocationCard: View {
         case "walk": return "👣"
         case "surf": return "🌊"
         case "old-rod", "good-rod", "super-rod": return "🎣"
+        case "super-rod-spots": return "🌀"
         case "gift": return "🎁"
         case "rock-smash": return "🪨"
         case "island-scan": return "🔎"
+        case "bubbling-spots": return "🫧"
+        case "sos-encounter": return "📞"
         default: return "❓"
         }
     }
@@ -257,28 +315,36 @@ struct LocationCard: View {
  
     private func versionColor(for version: String) -> Color {
         switch version.lowercased() {
-        case "red", "ruby", "omega-ruby": return Color.red
+        case "red", "firered", "ruby", "omega-ruby": return Color.red
         case "blue", "sapphire", "alpha-sapphire": return Color.blue
         case "yellow": return Color.yellow
         case "gold": return Color.orange
         case "silver": return Color.gray
         case "crystal": return Color.cyan
+        case "emerald", "leafgreen": return Color.green
         case "diamond": return Color.blue.opacity(0.8)
         case "pearl": return Color.pink
         case "platinum": return Color.gray.opacity(0.7)
         case "heartgold": return Color.yellow
         case "soulsilver": return Color.gray.opacity(0.7)
-        case "black": return Color.black
-        case "white": return Color.white.opacity(0.8)
+        case "black", "black-2": return Color.black
+        case "white", "white-2": return Color.white.opacity(0.8)
         case "x": return Color.blue
         case "y": return Color.red
-        case "sun": return Color.orange.opacity(0.7)
-        case "moon": return Color.indigo.opacity(0.7)
+        case "sun": return Color.orange.opacity(0.8)
+        case "moon": return Color.indigo.opacity(0.8)
         case "ultra-sun": return Color.orange
         case "ultra-moon": return Color.indigo
         case "sword": return Color.cyan
         case "shield": return Color.red.opacity(0.7)
         default: return Color.gray
+        }
+    }
+    
+    private func versionFont(for version: String) -> Color {
+        switch version.lowercased(){
+        case "white", "white-2": return Color.black
+        default: return Color.white
         }
     }
 }

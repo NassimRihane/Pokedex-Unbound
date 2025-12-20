@@ -28,7 +28,9 @@ struct PokemonTabView: View {
         }
         .navigationTitle(pokemon.name.capitalized)
         .navigationBarTitleDisplayMode(.inline)
+        .id(pokemon.name)
         .task(id: pokemon.id){
+            vm.clearPokemonDetails()
             vm.loadLocalDetails(for: pokemon)
         }
         .onAppear {
