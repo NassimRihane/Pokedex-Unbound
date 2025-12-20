@@ -20,8 +20,10 @@ final class ViewModel: ObservableObject {
     @Published var pokemonDetails: DetailPokemon?
     @Published var searchText = ""
     
-    // Cache to quickly reach translated names
+    // Cache to quickly reach translated names and types
     private var translatedNamesCache: [String: (nameJp: String?, nameFr: String?)] = [:]
+    
+    private var typesCache: [String: Set<String>] = [:]
     
     var filteredPokemon: [Pokemon] {
         if searchText.isEmpty{
@@ -113,6 +115,35 @@ final class ViewModel: ObservableObject {
         DispatchQueue.main.async{
             self.pokemonDetails = nil
         }
+    }
+    
+    func getPokemonTypes(for pokemon: Pokemon) -> Set<String>{
+        let key = pokemon.name
+        
+        if let cached = typesCache[key]{
+            return cached
+        }
+        
+        let pokemonId = extractIDFromURL(pokemon.url)
+        let formattedIndex = String(format: "%03d", pokemonId)
+        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode(DetailPokemon.self, from: data) else {
+            return []
+        }
+        
+        return Set(decoded.types.map {$0.type.name})
+    }
+    
+    private func extractIDFromURL(_ url: String) -> Int{
+        let components = url.split(separator: "/")
+        if let idString = components.last(where: {Int($0) != nil}),
+           let id = Int(idString){
+            return id
+        }
+        return 0
     }
     
 }
