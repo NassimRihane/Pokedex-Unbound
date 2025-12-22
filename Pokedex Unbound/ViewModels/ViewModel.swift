@@ -137,7 +137,7 @@ final class ViewModel: ObservableObject {
         return Set(decoded.types.map {$0.type.name})
     }
     
-    private func extractIDFromURL(_ url: String) -> Int{
+    func extractIDFromURL(_ url: String) -> Int{
         let components = url.split(separator: "/")
         if let idString = components.last(where: {Int($0) != nil}),
            let id = Int(idString){

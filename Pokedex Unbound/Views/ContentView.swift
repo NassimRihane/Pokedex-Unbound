@@ -58,10 +58,60 @@ enum PokemonType: String, CaseIterable, Identifiable{
     }
 }
 
+enum PokemonGeneration: Int, CaseIterable, Identifiable{
+    case i = 1, ii, iii, iv, v, vi, vii, viii
+    
+    var id: Int{self.rawValue}
+    
+    var displayName: String{
+        switch self{
+        case .i: return "I"
+        case .ii: return "II"
+        case .iii: return "III"
+        case .iv: return "IV"
+        case .v: return "V"
+        case .vi: return "VI"
+        case .vii: return "VII"
+        case .viii: return "VIII"
+        }
+    }
+    
+    var idRange: ClosedRange<Int>{
+        switch self{
+        case .i: return 1...151
+        case .ii: return 152...251
+        case .iii: return 252...386
+        case .iv: return 387...494
+        case .v: return 495...649
+        case .vi: return 650...721
+        case .vii: return 722...809
+        case .viii: return 810...905
+        }
+    }
+    
+    var color: Color{
+        switch self{
+        case .i: return Color.red
+        case .ii: return Color.orange
+        case .iii: return Color.green
+        case .iv: return Color.blue
+        case .v: return Color.purple
+        case .vi: return Color.pink
+        case .vii: return Color.cyan
+        case .viii: return Color.indigo
+        }
+    }
+    
+    static func from(pokemonId: Int) -> PokemonGeneration? {
+        return PokemonGeneration.allCases.first {$0.idRange.contains(pokemonId)}
+    }
+}
+
 struct ContentView: View {
     @StateObject var vm = ViewModel()
     @State private var displayMode: DisplayMode = .large
     @State private var selectedTypes: Set<PokemonType> = []
+    @State private var selectedGens: Set<PokemonGeneration> = []
     @State private var showFilterSheet = false
     
     // Adaptative columns according to display modes
@@ -76,27 +126,38 @@ struct ContentView: View {
         }
     }
     
-    private var filteredByType: [Pokemon]{
-        let searchFilterd = vm.filteredPokemon
+    private var filteredByTypeAndGen: [Pokemon]{
+        var filtered = vm.filteredPokemon
         
-        if selectedTypes.isEmpty{
-            return searchFilterd
+        if !selectedTypes.isEmpty{
+            filtered = filtered.filter{ pokemon in
+                let pokemonTypes = vm.getPokemonTypes(for: pokemon)
+                let selectedTypeNames = Set(selectedTypes.map{$0.rawValue})
+                return selectedTypeNames.isSubset(of: pokemonTypes)
+            }
         }
         
-        return searchFilterd.filter{ pokemon in
-            let pokemonTypes = vm.getPokemonTypes(for: pokemon)
-            let selectedTypeNames = Set(selectedTypes.map{$0.rawValue})
-            
-            return selectedTypeNames.isSubset(of: pokemonTypes)
+        if !selectedGens.isEmpty{
+            filtered = filtered.filter{ pokemon in
+                let pokemonId = vm.extractIDFromURL(pokemon.url)
+                return selectedGens.contains{ gen in
+                    gen.idRange.contains(pokemonId)
+                }
+            }
         }
+        
+        return filtered
     }
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 
-                if !selectedTypes.isEmpty{
-                    ActiveFiltersView(selectedTypes: $selectedTypes)
+                if !selectedTypes.isEmpty || !selectedGens.isEmpty{
+                    ActiveFiltersView(
+                        selectedTypes: $selectedTypes,
+                        selectedGens: $selectedGens
+                    )
                         .padding(.horizontal)
                         .padding(.top, 8)
                 }
@@ -104,7 +165,7 @@ struct ContentView: View {
                 switch displayMode {
                 case .large, .small:
                     LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
-                        ForEach(filteredByType) { pokemon in
+                        ForEach(filteredByTypeAndGen) { pokemon in
                             NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
                                 if displayMode == .large {
                                     PokemonView(pokemon: pokemon)
@@ -114,18 +175,18 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .animation(.easeIn(duration: 0.3), value: filteredByType.count)
+                    .animation(.easeIn(duration: 0.3), value: filteredByTypeAndGen.count)
                     .padding(.horizontal)
                     
                 case .minimal:
                     LazyVStack(spacing: 0) {
-                        ForEach(filteredByType) { pokemon in
+                        ForEach(filteredByTypeAndGen) { pokemon in
                             NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
                                 PokemonViewMinimal(pokemon: pokemon)
                             }
                         }
                     }
-                    .animation(.easeIn(duration: 0.3), value: filteredByType.count)
+                    .animation(.easeIn(duration: 0.3), value: filteredByTypeAndGen.count)
                 }
             }
             .navigationTitle("PokemonUI")
@@ -177,7 +238,10 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showFilterSheet) {
-                FilterSheet(selectedTypes: $selectedTypes)
+                FilterSheet(
+                    selectedTypes: $selectedTypes,
+                    selectedGens: $selectedGens
+                )
             }
         }
         .environmentObject(vm)
@@ -294,12 +358,14 @@ struct PokemonViewMinimal: View {
 
 struct FilterSheet: View {
     @Binding var selectedTypes: Set<PokemonType>
+    @Binding var selectedGens: Set<PokemonGeneration>
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
         NavigationStack{
             ScrollView{
                 VStack(alignment: .leading, spacing: 20){
+                    
                     VStack(alignment: .leading, spacing: 12){
                         Text("Types")
                             .font(.title2)
@@ -321,7 +387,31 @@ struct FilterSheet: View {
                         }
                     }
                     
-                    Spacer()
+                    Divider()
+                        .padding(.vertical, 10)
+                    
+                    VStack(alignment: .leading, spacing: 12){
+                        Text("Generations")
+                            .font(.title2)
+                            .fontWeight(.bold)
+            
+                        Text("Select the generations to filter")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 10){
+                            ForEach(PokemonGeneration.allCases, id: \.id){ generation in
+                                GenerationFilterButton(generation: generation,
+                                                 isSelected: selectedGens.contains(generation),
+                                                 action:{
+                                                    toggleGeneration(generation)
+                                                }
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer ()
                 }
                 .padding()
             }
@@ -331,8 +421,9 @@ struct FilterSheet: View {
                 ToolbarItem(placement: .navigationBarLeading){
                     Button("Clear"){
                         selectedTypes.removeAll()
+                        selectedGens.removeAll()
                     }
-                    .disabled(selectedTypes.isEmpty)
+                    .disabled(selectedTypes.isEmpty && selectedGens.isEmpty)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing){
@@ -350,6 +441,14 @@ struct FilterSheet: View {
             selectedTypes.remove(type)
         } else if selectedTypes.count < 2 {
             selectedTypes.insert(type)
+        }
+    }
+    
+    private func toggleGeneration(_ gen: PokemonGeneration){
+        if selectedGens.contains(gen){
+            selectedGens.remove(gen)
+        } else{
+            selectedGens.insert(gen)
         }
     }
 }
@@ -389,35 +488,97 @@ struct TypeFilterButton: View {
 }
 
 
+struct GenerationFilterButton: View {
+    let generation: PokemonGeneration
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View{
+        Button(action: action) {
+            HStack{
+                Text(generation.displayName)
+                    .font(.subheadline)
+                    .fontWeight(isSelected ? .semibold: .regular)
+                
+                if isSelected{
+                    Image(systemName: "checkmark")
+                        .font(.caption)
+                }
+            }
+            .foregroundColor(isSelected ? .white: generation.color)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? generation.color : generation.color.opacity(0.2))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(generation.color, lineWidth: isSelected ? 2: 1)
+            )
+        }
+    }
+}
+
+
+
 struct ActiveFiltersView: View{
     @Binding var selectedTypes: Set<PokemonType>
+    @Binding var selectedGens: Set<PokemonGeneration>
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false){
             HStack(spacing: 10) {
+                
                 ForEach(Array(selectedTypes).sorted(by: { $0.rawValue < $1.rawValue })) { type in
-                    HStack(spacing: 4) {
-                        Text(type.displayName)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                        
-                        Button(action: {
+                    FilterBadge(
+                        text: type.displayName,
+                        color: type.color,
+                        onRemove: {
                             selectedTypes.remove(type)
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
                         }
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(type.color)
-                    .cornerRadius(12)
+                    )
+                }
+                
+                ForEach(Array(selectedGens).sorted(by: {$0.rawValue < $1.rawValue}), id: \.id){ gen in
+                    FilterBadge(
+                        text: gen.displayName,
+                        color: gen.color,
+                        onRemove: {
+                            selectedGens.remove(gen)
+                        }
+                    )
                 }
             }
         }
     }
 }
+
+struct FilterBadge: View {
+    let text: String
+    let color: Color
+    let onRemove: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 4){
+            Text(text)
+                .font(.caption)
+                .fontWeight(.semibold)
+            
+            Button(action: onRemove){
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(color)
+        .cornerRadius(12)
+    }
+}
+
+
 
 
 #Preview {
