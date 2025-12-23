@@ -107,12 +107,113 @@ enum PokemonGeneration: Int, CaseIterable, Identifiable{
     }
 }
 
+
+enum SortMethod: Equatable, Identifiable{
+    case id
+    case name
+    case hp(ascending: Bool)
+    case attack(ascending: Bool)
+    case defense(ascending: Bool)
+    case specialAttack(ascending: Bool)
+    case specialDefense(ascending: Bool)
+    case speed(ascending: Bool)
+    case total(ascending: Bool)
+    
+    var id: String{
+        switch self{
+        case .id: return "id"
+        case .name: return "name"
+        case .hp(let asc): return "hp_\(asc)"
+        case .attack(let asc): return "attack_\(asc)"
+        case .defense(let asc): return "defense_\(asc)"
+        case .specialAttack(let asc): return "specialAttack_\(asc)"
+        case .specialDefense(let asc): return "specialDefense_\(asc)"
+        case .speed(let asc): return "speed_\(asc)"
+        case .total(let asc): return "total_\(asc)"
+        }
+    }
+    
+    var displayName: String{
+        switch self{
+        case .id: return "ID"
+        case .name: return "Name"
+        case .hp(let asc): return "HP (\(asc ? "Lowest" : "Highest") First)"
+        case .attack(let asc): return "Attack (\(asc ? "Lowest" : "Highest") First)"
+        case .defense(let asc): return "Defense (\(asc ? "Lowest" : "Highest") First)"
+        case .specialAttack(let asc): return "Sp. Atk (\(asc ? "Lowest" : "Highest") First)"
+        case .specialDefense(let asc): return "Sp. Def (\(asc ? "Lowest" : "Highest") First)"
+        case .speed(let asc): return "Speed (\(asc ? "Lowest" : "Highest") First)"
+        case .total(let asc): return "Total Stats (\(asc ? "Lowest" : "Highest") First)"
+        }
+    }
+    
+    var shortName: String{
+        switch self{
+        case .id: return "ID"
+        case .name: return "Name"
+        case .hp: return "HP"
+        case .attack: return "Attack"
+        case .defense: return "Defense"
+        case .specialAttack: return "Sp. Atk"
+        case .specialDefense: return "Sp. Def"
+        case .speed: return "Speed"
+        case .total: return "Total"
+        }
+    }
+    
+    var icon: String{
+        switch self{
+        case .id: return "number"
+        case .name: return "textformat.abc"
+        case .hp: return "heart.fill"
+        case .attack: return "bolt.fill"
+        case .defense: return "shield.fill"
+        case .specialAttack: return "sparkles"
+        case .specialDefense: return "shield.lefthalf.filled"
+        case .speed: return "hare.fill"
+        case .total: return "chart.bar.fill"
+        }
+    }
+}
+
+
+enum SortCategory: String, CaseIterable{
+    case general = "General"
+    case stats = "Stats"
+    
+    func methods() -> [SortMethod]{
+        switch self {
+        case .general:
+            return [.id, .name]
+        case .stats:
+            return [
+                .hp(ascending: false),
+                .hp(ascending: true),
+                .attack(ascending: false),
+                .attack(ascending: true),
+                .defense(ascending: false),
+                .defense(ascending: true),
+                .specialAttack(ascending: false),
+                .specialAttack(ascending: true),
+                .specialDefense(ascending: false),
+                .specialDefense(ascending: true),
+                .speed(ascending: false),
+                .speed(ascending: true),
+                .total(ascending: false),
+                .total(ascending: true)
+            ]
+        }
+    }
+}
+
+
 struct ContentView: View {
     @StateObject var vm = ViewModel()
     @State private var displayMode: DisplayMode = .large
     @State private var selectedTypes: Set<PokemonType> = []
     @State private var selectedGens: Set<PokemonGeneration> = []
     @State private var statFilters = StatFilters()
+    @State private var sortMethod: SortMethod = .id
     @State private var showFilterSheet = false
     
     // Adaptative columns according to display modes
@@ -127,7 +228,7 @@ struct ContentView: View {
         }
     }
     
-    private var filteredByTypeAndGen: [Pokemon]{
+    private var filteredAndSortedPokemon: [Pokemon]{
         var filtered = vm.filteredPokemon
         
         if !selectedTypes.isEmpty{
@@ -163,7 +264,68 @@ struct ContentView: View {
             }
         }
         
-        return filtered
+        return sortPokemon(filtered, by: sortMethod)
+    }
+    
+    private func sortPokemon(_ pokemon: [Pokemon], by method: SortMethod) -> [Pokemon] {
+        switch method {
+        case .id:
+            return pokemon.sorted {vm.extractIDFromURL($0.url) < vm.extractIDFromURL($1.url)}
+            
+        case .name:
+            return pokemon.sorted {$0.name < $1.name}
+            
+        case .hp(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0).hp
+                let stat2 = vm.getPokemonStats(for: $1).hp
+                return ascending ? stat1 < stat2 : stat1 > stat2
+            }
+            
+        case .attack(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0).attack
+                let stat2 = vm.getPokemonStats(for: $1).attack
+                return ascending ? stat1 < stat2 : stat1 > stat2
+            }
+            
+        case .defense(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0).defense
+                let stat2 = vm.getPokemonStats(for: $1).defense
+                return ascending ? stat1 < stat2 : stat1 > stat2
+            }
+            
+        case .specialAttack(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0).specialAttack
+                let stat2 = vm.getPokemonStats(for: $1).specialAttack
+                return ascending ? stat1 < stat2 : stat1 > stat2
+            }
+            
+        case .specialDefense(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0).specialDefense
+                let stat2 = vm.getPokemonStats(for: $1).specialDefense
+                return ascending ? stat1 < stat2 : stat1 > stat2
+            }
+            
+        case .speed(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0).speed
+                let stat2 = vm.getPokemonStats(for: $1).speed
+                return ascending ? stat1 < stat2 : stat1 > stat2
+            }
+            
+        case .total(let ascending):
+            return pokemon.sorted{
+                let stat1 = vm.getPokemonStats(for: $0)
+                let stat2 = vm.getPokemonStats(for: $1)
+                let total1 = stat1.hp + stat1.attack + stat1.defense + stat1.specialAttack + stat1.specialDefense + stat1.speed
+                let total2 = stat2.hp + stat2.attack + stat2.defense + stat2.specialAttack + stat2.specialDefense + stat2.speed
+                return ascending ? total1 < total2 : total1 > total2
+            }
+        }
     }
     
     var body: some View {
@@ -180,10 +342,22 @@ struct ContentView: View {
                     .padding(.top, 8)
                 }
                 
+                if sortMethod != .id {
+                    HStack{
+                        Image(systemName: sortMethod.icon)
+                            .font(.caption)
+                        Text("Sorted by: \(sortMethod.shortName)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                }
+                
                 switch displayMode {
                 case .large, .small:
                     LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
-                        ForEach(filteredByTypeAndGen) { pokemon in
+                        ForEach(filteredAndSortedPokemon) { pokemon in
                             NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
                                 if displayMode == .large {
                                     PokemonView(pokemon: pokemon)
@@ -193,21 +367,21 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .animation(.easeIn(duration: 0.3), value: filteredByTypeAndGen.count)
+                    .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
                     .padding(.horizontal)
                     
                 case .minimal:
                     LazyVStack(spacing: 0) {
-                        ForEach(filteredByTypeAndGen) { pokemon in
+                        ForEach(filteredAndSortedPokemon) { pokemon in
                             NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
                                 PokemonViewMinimal(pokemon: pokemon)
                             }
                         }
                     }
-                    .animation(.easeIn(duration: 0.3), value: filteredByTypeAndGen.count)
+                    .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
                 }
             }
-            .navigationTitle("PokemonUI")
+            .navigationTitle("Pokedex")
             .searchable(text: $vm.searchText)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -260,7 +434,8 @@ struct ContentView: View {
                 FilterSheet(
                     selectedTypes: $selectedTypes,
                     selectedGens: $selectedGens,
-                    statFilters: $statFilters
+                    statFilters: $statFilters,
+                    sortMethod: $sortMethod
                 )
             }
         }
@@ -380,7 +555,10 @@ struct FilterSheet: View {
     @Binding var selectedTypes: Set<PokemonType>
     @Binding var selectedGens: Set<PokemonGeneration>
     @Binding var statFilters: StatFilters
+    @Binding var sortMethod: SortMethod
     @Environment(\.dismiss) var dismiss
+    
+    @State private var showSortSheet = false
     
     var body: some View {
         NavigationStack{
@@ -409,8 +587,42 @@ struct FilterSheet: View {
                         }
                     }
                     
-                    Divider()
-                        .padding(.vertical, 10)
+                    Divider().padding(.vertical, 10)
+                    
+                    // Sorting menu
+                    VStack(alignment: .leading, spacing: 12){
+                        Text("Sort")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Button(action: {showSortSheet = true}){
+                            HStack{
+                                Image(systemName: sortMethod.icon)
+                                    .foregroundStyle(.blue)
+                                
+                                VStack(alignment: .leading, spacing: 2){
+                                    Text("Sort by")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(sortMethod.displayName)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.primary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(10)
+                        }
+                    }
+                    
+                    Divider().padding(.vertical, 10)
+                    
                     
                     // Generation filter display
                     VStack(alignment: .leading, spacing: 12){
@@ -504,7 +716,7 @@ struct FilterSheet: View {
                 }
                 .padding()
             }
-            .navigationTitle("Filters")
+            .navigationTitle("Filters & Sort")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar{
                 ToolbarItem(placement: .navigationBarLeading){
@@ -512,6 +724,7 @@ struct FilterSheet: View {
                         selectedTypes.removeAll()
                         selectedGens.removeAll()
                         statFilters.reset()
+                        sortMethod = .id
                     }
                     .disabled(selectedTypes.isEmpty && selectedGens.isEmpty && !statFilters.hasActiveFilters)
                 }
@@ -522,6 +735,9 @@ struct FilterSheet: View {
                     }
                     .fontWeight(.semibold)
                 }
+            }
+            .sheet(isPresented: $showSortSheet){
+                SortSelectionSheet(sortMethod: $sortMethod)
             }
         }
     }
@@ -798,6 +1014,56 @@ struct StatSlider: View {
             .frame(height: 4)
         }
         .padding(.vertical, 4)
+    }
+}
+
+
+// Sort selection
+struct SortSelectionSheet: View{
+    @Binding var sortMethod: SortMethod
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack{
+            List{
+                ForEach(SortCategory.allCases, id: \.self){ category in
+                    Section(header: Text(category.rawValue)){
+                        let methods = category.methods()
+                        ForEach(methods, id: \.id) { method in
+                            Button(action: {
+                                sortMethod = method
+                                dismiss()
+                            }) {
+                                HStack{
+                                    Image(systemName: method.icon)
+                                        .foregroundStyle(.blue)
+                                        .frame(width: 24)
+                                    
+                                    Text(method.displayName)
+                                        .foregroundStyle(.primary)
+                                    
+                                    Spacer()
+                                    
+                                    if sortMethod == method {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(.blue)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Sort By")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar{
+                ToolbarItem(placement: .navigationBarTrailing){
+                    Button("Cancel"){
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
 
