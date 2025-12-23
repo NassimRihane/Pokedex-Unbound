@@ -146,6 +146,65 @@ final class ViewModel: ObservableObject {
         return 0
     }
     
+    
+    // Stats for the slider filter
+    struct PokemonStats{
+        let hp: Int
+        let attack: Int
+        let defense: Int
+        let specialAttack: Int
+        let specialDefense: Int
+        let speed: Int
+    }
+    
+    private var statsCache: [String: PokemonStats] = [:]
+    
+    func getPokemonStats(for pokemon: Pokemon) -> PokemonStats{
+        let key = pokemon.name
+        
+        if let cached = statsCache[key]{
+            return cached
+        }
+        
+        let pokemonId = extractIDFromURL(pokemon.url)
+        let formattedIndex = String(format: "%03d", pokemonId)
+        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode(DetailPokemon.self, from: data) else{
+            let emptyStats = PokemonStats(hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0)
+            statsCache[key] = emptyStats
+            return emptyStats
+        }
+        
+        var hp = 0, attack = 0, defense = 0, specialAttack = 0, specialDefense = 0, speed = 0
+        
+        for stat in decoded.stats{
+            switch stat.stat.name.lowercased(){
+            case "hp": hp = stat.base_stat
+            case "attack": attack = stat.base_stat
+            case "defense": defense = stat.base_stat
+            case "specialAttack": specialAttack = stat.base_stat
+            case "specialDefense": specialDefense = stat.base_stat
+            case "speed": speed = stat.base_stat
+            default: break
+            }
+        }
+        
+        let stats = PokemonStats(
+            hp: hp,
+            attack: attack,
+            defense: defense,
+            specialAttack: specialAttack,
+            specialDefense: specialDefense,
+            speed: speed
+        )
+        
+        statsCache[key] = stats
+        return stats
+    }
+    
 }
 
 

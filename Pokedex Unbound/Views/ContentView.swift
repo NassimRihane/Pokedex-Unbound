@@ -112,6 +112,7 @@ struct ContentView: View {
     @State private var displayMode: DisplayMode = .large
     @State private var selectedTypes: Set<PokemonType> = []
     @State private var selectedGens: Set<PokemonGeneration> = []
+    @State private var statFilters = StatFilters()
     @State private var showFilterSheet = false
     
     // Adaptative columns according to display modes
@@ -146,6 +147,22 @@ struct ContentView: View {
             }
         }
         
+        if statFilters.hasActiveFilters{
+            filtered = filtered.filter{ pokemon in
+                let stats = vm.getPokemonStats(for: pokemon)
+                
+                // Check if the stat filter is active
+                if statFilters.hp > 0 && stats.hp < statFilters.hp {return false}
+                if statFilters.attack > 0 && stats.attack < statFilters.attack {return false}
+                if statFilters.defense > 0 && stats.defense < statFilters.defense {return false}
+                if statFilters.specialAttack > 0 && stats.specialAttack < statFilters.specialAttack {return false}
+                if statFilters.specialDefense > 0 && stats.specialDefense < statFilters.specialDefense {return false}
+                if statFilters.speed > 0 && stats.speed < statFilters.speed {return false}
+                
+                return true
+            }
+        }
+        
         return filtered
     }
     
@@ -153,13 +170,14 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 
-                if !selectedTypes.isEmpty || !selectedGens.isEmpty{
+                if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters{
                     ActiveFiltersView(
                         selectedTypes: $selectedTypes,
-                        selectedGens: $selectedGens
+                        selectedGens: $selectedGens,
+                        statFilters: $statFilters
                     )
-                        .padding(.horizontal)
-                        .padding(.top, 8)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                 }
                 
                 switch displayMode {
@@ -200,12 +218,13 @@ struct ContentView: View {
                             Image(systemName: "line.3.horizontal.decrease.circle")
                                 .font(.title3)
                             
-                            if !selectedTypes.isEmpty {
+                            let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount
+                            if totalFilters > 0 {
                                 Circle()
                                     .fill(Color.red)
                                     .frame(width: 16, height: 16)
                                     .overlay(
-                                        Text("\(selectedTypes.count)")
+                                        Text("\(totalFilters)")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundColor(.white)
                                     )
@@ -240,7 +259,8 @@ struct ContentView: View {
             .sheet(isPresented: $showFilterSheet) {
                 FilterSheet(
                     selectedTypes: $selectedTypes,
-                    selectedGens: $selectedGens
+                    selectedGens: $selectedGens,
+                    statFilters: $statFilters
                 )
             }
         }
@@ -359,6 +379,7 @@ struct PokemonViewMinimal: View {
 struct FilterSheet: View {
     @Binding var selectedTypes: Set<PokemonType>
     @Binding var selectedGens: Set<PokemonGeneration>
+    @Binding var statFilters: StatFilters
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -366,6 +387,7 @@ struct FilterSheet: View {
             ScrollView{
                 VStack(alignment: .leading, spacing: 20){
                     
+                    // Type filter display
                     VStack(alignment: .leading, spacing: 12){
                         Text("Types")
                             .font(.title2)
@@ -390,6 +412,7 @@ struct FilterSheet: View {
                     Divider()
                         .padding(.vertical, 10)
                     
+                    // Generation filter display
                     VStack(alignment: .leading, spacing: 12){
                         Text("Generations")
                             .font(.title2)
@@ -411,7 +434,73 @@ struct FilterSheet: View {
                         }
                     }
                     
-                    Spacer ()
+                    Divider().padding(.vertical, 10)
+                    
+                    // Stat filter sliders display
+                    VStack( alignment: .leading, spacing: 12){
+                        Text("Minimum Stats")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Text("Filter by minimum base stats (0 = no filter)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        //Sliders
+                        StatSlider(
+                            label: "HP",
+                            value: $statFilters.hp,
+                            range: 0...255,
+                            color: .green
+                        )
+                        
+                        StatSlider(
+                            label: "Attack",
+                            value: $statFilters.attack,
+                            range: 0...190,
+                            color: .red
+                        )
+                        
+                        StatSlider(
+                            label: "Defense",
+                            value: $statFilters.defense,
+                            range: 0...230,
+                            color: .yellow
+                        )
+                        
+                        StatSlider(
+                            label: "Sp. Atk",
+                            value: $statFilters.specialAttack,
+                            range: 0...194,
+                            color: .blue
+                        )
+                        
+                        StatSlider(
+                            label: "Sp. Def",
+                            value: $statFilters.specialDefense,
+                            range: 0...230,
+                            color: .orange
+                        )
+                        
+                        StatSlider(
+                            label: "Speed",
+                            value: $statFilters.speed,
+                            range: 0...180,
+                            color: .purple
+                        )
+                        
+                        if statFilters.hasActiveFilters{
+                            HStack{
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("Fitlering \(statFilters.activeCount) stat(s)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.top, 8)
+                        }
+                    }
+                    Spacer()
                 }
                 .padding()
             }
@@ -422,8 +511,9 @@ struct FilterSheet: View {
                     Button("Clear"){
                         selectedTypes.removeAll()
                         selectedGens.removeAll()
+                        statFilters.reset()
                     }
-                    .disabled(selectedTypes.isEmpty && selectedGens.isEmpty)
+                    .disabled(selectedTypes.isEmpty && selectedGens.isEmpty && !statFilters.hasActiveFilters)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing){
@@ -525,6 +615,7 @@ struct GenerationFilterButton: View {
 struct ActiveFiltersView: View{
     @Binding var selectedTypes: Set<PokemonType>
     @Binding var selectedGens: Set<PokemonGeneration>
+    @Binding var statFilters: StatFilters
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false){
@@ -547,6 +638,49 @@ struct ActiveFiltersView: View{
                         onRemove: {
                             selectedGens.remove(gen)
                         }
+                    )
+                }
+                
+                if statFilters.hp > 0 {
+                    FilterBadge(
+                        text: "HP≥\(statFilters.hp)",
+                        color: .green,
+                        onRemove: { statFilters.hp = 0 }
+                    )
+                }
+                if statFilters.attack > 0 {
+                    FilterBadge(
+                        text: "Atk≥\(statFilters.attack)",
+                        color: .red,
+                        onRemove: { statFilters.attack = 0 }
+                    )
+                }
+                if statFilters.defense > 0 {
+                    FilterBadge(
+                        text: "Def≥\(statFilters.defense)",
+                        color: .yellow,
+                        onRemove: { statFilters.defense = 0 }
+                    )
+                }
+                if statFilters.specialAttack > 0 {
+                    FilterBadge(
+                        text: "SpA≥\(statFilters.specialAttack)",
+                        color: .blue,
+                        onRemove: { statFilters.specialAttack = 0 }
+                    )
+                }
+                if statFilters.specialDefense > 0 {
+                    FilterBadge(
+                        text: "SpD≥\(statFilters.specialDefense)",
+                        color: .orange,
+                        onRemove: { statFilters.specialDefense = 0 }
+                    )
+                }
+                if statFilters.speed > 0 {
+                    FilterBadge(
+                        text: "Spd≥\(statFilters.speed)",
+                        color: .purple,
+                        onRemove: { statFilters.speed = 0 }
                     )
                 }
             }
@@ -579,6 +713,93 @@ struct FilterBadge: View {
 }
 
 
+// Stat filter
+struct StatFilters{
+    var hp: Int = 0
+    var attack: Int = 0
+    var defense: Int = 0
+    var specialAttack: Int = 0
+    var specialDefense: Int = 0
+    var speed: Int = 0
+    
+    // Check if a filter is active and how many are
+    var hasActiveFilters: Bool{
+        return hp > 0 || attack > 0 || defense > 0 || specialAttack > 0 || specialDefense > 0 || speed > 0
+    }
+    
+    var activeCount: Int{
+        var count = 0
+        if hp > 0 {count += 1}
+        if attack > 0 {count += 1}
+        if defense > 0 {count += 1}
+        if specialAttack > 0 {count += 1}
+        if specialDefense > 0 {count += 1}
+        if speed > 0 {count += 1}
+        return count
+    }
+    
+    mutating func reset(){
+        hp = 0
+        attack = 0
+        defense = 0
+        specialAttack = 0
+        specialDefense = 0
+        speed = 0
+    }
+}
+
+
+struct StatSlider: View {
+    let label: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let color: Color
+    
+    var body: some View{
+        VStack(spacing: 6){
+            HStack{
+                Text(label)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .frame(width: 70, alignment: .leading)
+                
+                Text("\(value)")
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(value > 0 ? color : .secondary)
+                    .frame(width: 40, alignment: .trailing)
+                
+                Slider(
+                    value: Binding(
+                        get: { Double(value)},
+                        set: { value = Int($0)}
+                    ),
+                    in: Double(range.lowerBound)...Double(range.upperBound),
+                    step: 5
+                )
+                .tint(value > 0 ? color : .gray.opacity(0.3))
+            }
+            
+            GeometryReader { geometry in
+                ZStack(alignment: .leading){
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 4)
+                    
+                    if value > 0{
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(color)
+                            .frame(
+                                width: geometry.size.width * CGFloat(value) / CGFloat(range.upperBound),
+                                height: 4
+                            )
+                    }
+                }
+            }
+            .frame(height: 4)
+        }
+        .padding(.vertical, 4)
+    }
+}
 
 
 #Preview {
