@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct Pokedex_UnboundApp: App {
+    @StateObject private var captureManager = CaptureManager()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(captureManager)
         }
     }
 }

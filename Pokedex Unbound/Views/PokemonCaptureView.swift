@@ -99,7 +99,7 @@ enum PokemonGame: String, CaseIterable, Identifiable{
 
 struct PokemonCaptureView: View {
     @EnvironmentObject var vm: ViewModel
-    @StateObject private var captureManager = CaptureManager()
+    @EnvironmentObject var captureManager: CaptureManager
     
     let pokemon: Pokemon
     
@@ -159,7 +159,7 @@ struct PokemonCaptureView: View {
                         StatCard(
                             label: "Total Games",
                             color: .blue,
-                            value: "\(PokemonGame.allCases.count)",
+                            value: "\(availableGames.count)",
                             icon: "gamecontroller.fill"
                         )
                     }
@@ -241,16 +241,44 @@ class CaptureManager: ObservableObject{
     
     private let captureKey = "pokemon_captures"
     
+    // Path to save captures states on a JSON
+    private var capturesFileURL: URL? {
+        guard let documentsDirectory = FileManager.default.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        ).first else{
+            return nil
+        }
+        return documentsDirectory.appendingPathComponent("pokemon_captures.json")
+    }
+    
+    
     init(){
         loadCaptures()
     }
     
     func loadCaptures(){
+        if let fileURL = capturesFileURL,
+           FileManager.default.fileExists(atPath: fileURL.path),
+           let data = try? Data(contentsOf: fileURL),
+           let decoded = try? JSONDecoder().decode([String: [String]].self, from: data){
+            captures = decoded.mapValues{ gameStrings in
+                Set(gameStrings.compactMap{ PokemonGame(rawValue: $0) })
+            }
+            print("Captures loaded from JSON")
+            print("File location: \(fileURL.path)")
+            return
+        }
+        
+        // In case, fallback on UserDefaults, then migrate to JSON
         if let data = UserDefaults.standard.data(forKey: captureKey),
             let decoded = try? JSONDecoder().decode([String: [String]].self, from: data){
             captures = decoded.mapValues { gameStrings in
                 Set(gameStrings.compactMap { PokemonGame(rawValue: $0) })
             }
+            
+            saveCaptures()
+            print("Captures loaded from UserDefaults and migrated")
         }
     }
     
@@ -259,9 +287,20 @@ class CaptureManager: ObservableObject{
             games.map { $0.rawValue }
         }
         
-        if let encoded = try? JSONEncoder().encode(encodable) {
-            UserDefaults.standard.set(encoded, forKey: captureKey)
+        guard let encoded = try? JSONEncoder().encode(encodable) else {
+            print("Failed to encode captures")
+            return
         }
+        
+        if let fileURL = capturesFileURL{
+            do{
+                try encoded.write(to:fileURL, options: .atomic)
+            } catch{
+                print("Error saving to JSON= \(error)")
+            }
+        }
+        UserDefaults.standard.set(encoded, forKey: captureKey)
+        
     }
     
     func isCaught(_ pokemonName: String, in game: PokemonGame) -> Bool {
@@ -290,6 +329,10 @@ class CaptureManager: ObservableObject{
     
     func totalCaught(in game: PokemonGame) -> Int {
         return captures.values.filter { $0.contains(game) }.count
+    }
+    
+    func exportCaptures() -> URL? {
+        return capturesFileURL
     }
 }
 

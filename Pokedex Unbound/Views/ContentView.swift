@@ -208,12 +208,14 @@ enum SortCategory: String, CaseIterable{
 
 
 struct ContentView: View {
+    @EnvironmentObject var captureManager: CaptureManager
     @StateObject var vm = ViewModel()
     @State private var displayMode: DisplayMode = .large
     @State private var selectedTypes: Set<PokemonType> = []
     @State private var selectedGens: Set<PokemonGeneration> = []
     @State private var statFilters = StatFilters()
     @State private var sortMethod: SortMethod = .id
+    @State private var captureFilters: [PokemonGame: CaptureFilterState] = [:]
     @State private var showFilterSheet = false
     
     // Adaptative columns according to display modes
@@ -260,6 +262,21 @@ struct ContentView: View {
                 if statFilters.specialDefense > 0 && stats.specialDefense < statFilters.specialDefense {return false}
                 if statFilters.speed > 0 && stats.speed < statFilters.speed {return false}
                 
+                return true
+            }
+        }
+        
+        if !captureFilters.isEmpty{
+            filtered = filtered.filter { pokemon in
+                for (game, state) in captureFilters where state != .none{
+                    let isCaught = captureManager.isCaught(pokemon.name, in: game)
+                    
+                    switch state{
+                    case .caught: if !isCaught {return false}
+                    case .notCaught: if isCaught {return false}
+                    case .none: continue
+                    }
+                }
                 return true
             }
         }
@@ -332,11 +349,12 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 
-                if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters{
+                if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters || !captureFilters.isEmpty{
                     ActiveFiltersView(
                         selectedTypes: $selectedTypes,
                         selectedGens: $selectedGens,
-                        statFilters: $statFilters
+                        statFilters: $statFilters,
+                        captureFilters: $captureFilters
                     )
                     .padding(.horizontal)
                     .padding(.top, 8)
@@ -392,7 +410,9 @@ struct ContentView: View {
                             Image(systemName: "line.3.horizontal.decrease.circle")
                                 .font(.title3)
                             
-                            let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount
+                            let activeCaptureFilters = captureFilters.values.filter { $0 != .none}.count
+                            let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount + activeCaptureFilters
+                            
                             if totalFilters > 0 {
                                 Circle()
                                     .fill(Color.red)
@@ -435,7 +455,8 @@ struct ContentView: View {
                     selectedTypes: $selectedTypes,
                     selectedGens: $selectedGens,
                     statFilters: $statFilters,
-                    sortMethod: $sortMethod
+                    sortMethod: $sortMethod,
+                    captureFilters: $captureFilters
                 )
             }
         }
@@ -556,6 +577,7 @@ struct FilterSheet: View {
     @Binding var selectedGens: Set<PokemonGeneration>
     @Binding var statFilters: StatFilters
     @Binding var sortMethod: SortMethod
+    @Binding var captureFilters: [PokemonGame: CaptureFilterState]
     @Environment(\.dismiss) var dismiss
     
     @State private var showSortSheet = false
@@ -706,13 +728,68 @@ struct FilterSheet: View {
                             HStack{
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
-                                Text("Fitlering \(statFilters.activeCount) stat(s)")
+                                Text("Filtering \(statFilters.activeCount) stat(s)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.top, 8)
                         }
                     }
+                    
+                    Divider().padding(.vertical, 10)
+                    
+                    VStack(alignment: .leading, spacing: 12){
+                        Text("Captures")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        VStack(alignment: .leading, spacing: 8){
+                            Text("Filter by capture status")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            HStack(spacing: 12){
+                                Label("Not filtered", systemImage: "circle")
+                                    .font(.caption2)
+                                    .foregroundStyle(.gray)
+                                
+                                Label("Caught", systemImage: "checkmark.circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                                
+                                Label("Not Caught", systemImage: "xmark.circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                        
+                        ForEach(1...8, id: \.self){ gen in
+                            let gamesInGen = PokemonGame.allCases.filter{ $0.generation == gen}
+                            
+                            if !gamesInGen.isEmpty{
+                                VStack(alignment: .leading, spacing: 8){
+                                    Text("Generation \(gen)")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.secondary)
+                                    
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 8){
+                                        ForEach(gamesInGen){ game in
+                                            CaptureFilterButton(
+                                                game: game,
+                                                state: captureFilters[game] ?? .none,
+                                                action: {
+                                                    toggleCaptureFilter(for: game)
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                    }
+                    
                     Spacer()
                 }
                 .padding()
@@ -756,6 +833,17 @@ struct FilterSheet: View {
             selectedGens.remove(gen)
         } else{
             selectedGens.insert(gen)
+        }
+    }
+    
+    private func toggleCaptureFilter(for game: PokemonGame){
+        var state = captureFilters[game] ?? .none
+        state.next()
+        
+        if state == .none {
+            captureFilters.removeValue(forKey: game)
+        } else {
+            captureFilters[game] = state
         }
     }
 }
@@ -833,6 +921,7 @@ struct ActiveFiltersView: View{
     @Binding var selectedTypes: Set<PokemonType>
     @Binding var selectedGens: Set<PokemonGeneration>
     @Binding var statFilters: StatFilters
+    @Binding var captureFilters: [PokemonGame: CaptureFilterState]
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false){
@@ -1064,6 +1153,74 @@ struct SortSelectionSheet: View{
                     }
                 }
             }
+        }
+    }
+}
+
+
+struct CaptureFilterButton: View{
+    let game: PokemonGame
+    let state: CaptureFilterState
+    let action: () -> Void
+    
+    var body: some View{
+        Button(action: action){
+            HStack(spacing: 8){
+                Circle()
+                    .fill(game.color)
+                    .frame(width: 8, height: 8)
+                
+                Text(game.displayName)
+                    .font(.caption)
+                    .fontWeight(state != .none ? .semibold : .regular)
+                
+                Spacer()
+                
+                Image(systemName: state.icon)
+                    .font(.caption)
+                    .foregroundStyle(state.color)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(state != .none ? state.color.opacity(0.1) : Color.gray.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(state != .none ? state.color : Color.clear, lineWidth: 1.5)
+            )
+        }
+    }
+}
+
+enum CaptureFilterState: Equatable{
+    case none       // not filtered
+    case caught
+    case notCaught
+    
+    // When the button is touched: notfiltered -> caught -> not caught
+    mutating func next(){
+        switch self{
+        case .none: self = .caught
+        case .caught: self = .notCaught
+        case .notCaught: self = .none
+        }
+    }
+    
+    var icon: String{
+        switch self{
+        case .none: return "circle"
+        case .caught: return "checkmark.circle.fill"
+        case .notCaught: return "xmark.circle.fill"
+        }
+    }
+    
+    var color: Color{
+        switch self{
+        case .none: return .gray
+        case .caught: return .green
+        case .notCaught: return .red
         }
     }
 }
