@@ -25,6 +25,10 @@ struct PokemonTabView: View {
             Tab("Zones", systemImage: "map"){
                 PokemonZonesView(pokemon: pokemon)
             }
+            
+            Tab("Capture", systemImage: "checkmark.seal"){
+                PokemonCaptureView(pokemon: pokemon)
+            }
         }
         .navigationTitle(pokemon.name.capitalized)
         .navigationBarTitleDisplayMode(.inline)
@@ -32,9 +36,6 @@ struct PokemonTabView: View {
         .task(id: pokemon.id){
             vm.clearPokemonDetails()
             vm.loadLocalDetails(for: pokemon)
-        }
-        .onAppear {
-            print("TabView vm object id: \(Unmanaged.passUnretained(vm).toOpaque())")
         }
     }
 }

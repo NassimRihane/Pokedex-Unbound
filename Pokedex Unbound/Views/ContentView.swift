@@ -565,30 +565,6 @@ struct FilterSheet: View {
             ScrollView{
                 VStack(alignment: .leading, spacing: 20){
                     
-                    // Type filter display
-                    VStack(alignment: .leading, spacing: 12){
-                        Text("Types")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("Select up to 2 types")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 10){
-                            ForEach(PokemonType.allCases){ type in
-                                TypeFilterButton(type: type,
-                                                 isSelected: selectedTypes.contains(type),
-                                                 action: {
-                                                    toggleType(type)
-                                                }
-                                )
-                            }
-                        }
-                    }
-                    
-                    Divider().padding(.vertical, 10)
-                    
                     // Sorting menu
                     VStack(alignment: .leading, spacing: 12){
                         Text("Sort")
@@ -618,6 +594,31 @@ struct FilterSheet: View {
                             .padding()
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(10)
+                        }
+                    }
+                    
+                    Divider().padding(.vertical, 10)
+
+                    
+                    // Type filter display
+                    VStack(alignment: .leading, spacing: 12){
+                        Text("Types")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Text("Select up to 2 types")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 10){
+                            ForEach(PokemonType.allCases){ type in
+                                TypeFilterButton(type: type,
+                                                 isSelected: selectedTypes.contains(type),
+                                                 action: {
+                                                    toggleType(type)
+                                                }
+                                )
+                            }
                         }
                     }
                     
