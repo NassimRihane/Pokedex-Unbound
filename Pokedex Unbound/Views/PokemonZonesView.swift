@@ -53,9 +53,9 @@ struct VersionEncounter: Codable {
 
 struct EncounterDetail: Codable {
     let method: String
-    let min_level: Int
-    let max_level: Int
-    let chance: Int
+    let min_level: Int?
+    let max_level: Int?
+    let chance: Int?
 }
 
 
@@ -109,6 +109,11 @@ struct PokemonZonesView: View {
     }
     
     private func extractGenerationNumber(from generation: String) -> Int {
+        
+        if generation == "Fan Games" {
+            return 0
+        }
+        
         let romanToInt = [
             "I": 1, "II": 2, "III": 3, "IV": 4, "V": 5,
             "VI": 6, "VII": 7, "VIII": 8, "IX": 9
@@ -209,6 +214,11 @@ struct GenerationAccordion: View {
     
     
     private func extractGenerationNumber(from generation: String) -> Int {
+        
+        if generation == "Fan Games" {
+            return 0
+        }
+        
         let romanToInt = [
             "I": 1, "II": 2, "III": 3, "IV": 4, "V": 5,
             "VI": 6, "VII": 7, "VIII": 8, "IX": 9
@@ -267,20 +277,26 @@ struct LocationCard: View {
                             Spacer()
                             
 
-                            if encounter.min_level == encounter.max_level {
-                                Text("Lv.\(encounter.min_level)")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                            } else {
-                                Text("Lv.\(encounter.min_level)-\(encounter.max_level)")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                            if let minLevel = encounter.min_level, let maxLevel = encounter.max_level{
+                                if minLevel == maxLevel {
+                                    Text("Lv.\(String(describing: encounter.min_level))")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                } else {
+                                    Text("Lv.\(String(describing: encounter.min_level))-\(String(describing:encounter.max_level))")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                }
                             }
                             
+                            if let chance = encounter.chance{
+                                Text("\(String(describing: chance))%")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
 
-                            Text("\(encounter.chance)%")
-                                .font(.caption)
-                                .foregroundColor(.blue)
+                            
+
                         }
                         .padding(.vertical, 4)
                         .padding(.horizontal, 8)

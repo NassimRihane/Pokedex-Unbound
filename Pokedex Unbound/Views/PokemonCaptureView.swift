@@ -9,7 +9,7 @@ import SwiftUI
 import Combine
 
 enum PokemonGame: String, CaseIterable, Identifiable{
-    case red, firered, ruby, blue, sapphire, yellow, gold, silver, crystal, emerald, leafgreen, diamond, pearl, platinum, heartgold, soulsilver, black, black2, white, white2, x, y, sun, moon, sword, shield
+    case red, firered, ruby, blue, sapphire, yellow, gold, silver, crystal, emerald, leafgreen, diamond, pearl, platinum, heartgold, soulsilver, black, black2, white, white2, x, y, sun, moon, sword, shield, unbound
     case omegaRuby = "omega-ruby"
     case alphaSapphire = "alpha-sapphire"
     case ultraSun = "ultra-sun"
@@ -49,6 +49,7 @@ enum PokemonGame: String, CaseIterable, Identifiable{
         case .ultraMoon: return "Ulra Moon"
         case .sword: return "Sword"
         case .shield: return "Shield"
+        case .unbound: return "Unbound"
         }
     }
 
@@ -91,6 +92,7 @@ enum PokemonGame: String, CaseIterable, Identifiable{
         case .x, .y, .omegaRuby, .alphaSapphire: return 6
         case .sun, .moon, .ultraSun, .ultraMoon: return 7
         case .sword, .shield: return 8
+        case .unbound: return 0
         }
     }
 }
@@ -126,7 +128,24 @@ struct PokemonCaptureView: View {
     }
     
     private var availableGames: [PokemonGame]{
-        return PokemonGame.allCases.filter {$0.generation >= introductionGeneration}
+
+        let core = PokemonGame.allCases.filter { $0.generation >= introductionGeneration }
+        let fan = PokemonGame.allCases.filter { $0.generation == 0 }
+        // to display fan games
+        let merged = fan + core
+        
+        // to avoid duplicatas
+        var seen = Set<String>()
+        let unique = merged.filter { game in
+            if seen.contains(game.rawValue) { return false }
+            seen.insert(game.rawValue)
+            return true
+        }
+        // sort by generation so Fan Games appears first
+        return unique.sorted { left, right in
+            if left.generation != right.generation { return left.generation < right.generation }
+            return left.displayName < right.displayName
+        }
     }
     
     var body: some View {
@@ -353,7 +372,6 @@ struct GameSelectionSheet: View {
             ScrollView{
                 VStack(alignment: .leading, spacing: 20){
                     
-                    
                     // Generation filter display
                     VStack(alignment: .leading, spacing: 12){
                         Text("Select Games")
@@ -376,12 +394,21 @@ struct GameSelectionSheet: View {
                     }
                     .padding(.horizontal)
                     
-                    ForEach(introductionGeneration...8, id: \.self) { gen in
+                    let displayGenerations: [Int] = {
+                        var gens = Array(max(1, introductionGeneration)...8)
+                        // If any available game belongs to generation 0 (Fan Games) and introductionGeneration <= 0, include 0 first
+                        // We also include 0 if any availableGames contain generation 0, regardless, so Fan Games can be displayed when relevant
+                        gens.insert(0, at: 0)
+                        
+                        return gens
+                    }()
+                    
+                    ForEach(displayGenerations, id: \.self) { gen in
                         let gamesInGen = availableGames.filter { $0.generation == gen}
                         
                         if !gamesInGen.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Generation \(gen)")
+                                Text(gen == 0 ? "Fan Games" : "Generation \(gen)")
                                     .font(.headline)
                                     .padding(.horizontal)
                                 

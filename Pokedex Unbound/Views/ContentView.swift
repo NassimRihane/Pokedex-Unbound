@@ -763,18 +763,18 @@ struct FilterSheet: View {
                             }
                         }
                         
-                        ForEach(1...8, id: \.self){ gen in
-                            let gamesInGen = PokemonGame.allCases.filter{ $0.generation == gen}
-                            
-                            if !gamesInGen.isEmpty{
-                                VStack(alignment: .leading, spacing: 8){
-                                    Text("Generation \(gen)")
+                        ForEach(0..<9, id: \.self) { gen in
+                            let gamesInGen = PokemonGame.allCases.filter { $0.generation == gen }
+
+                            if !gamesInGen.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(gen == 0 ? "Fan Games" : "Generation \(gen)")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundStyle(.secondary)
-                                    
-                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 8){
-                                        ForEach(gamesInGen){ game in
+
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 8) {
+                                        ForEach(gamesInGen) { game in
                                             CaptureFilterButton(
                                                 game: game,
                                                 state: captureFilters[game] ?? .none,

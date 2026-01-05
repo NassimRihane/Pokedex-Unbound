@@ -49,6 +49,9 @@ VERSION_TO_GENERATION = {
     # Gen 8
     "sword": "Generation VIII",
     "shield": "Generation VIII",
+
+    # Fan Games
+    "unbound": "Fan Games"
 }
 
 def get_ability_description(ability_url):
