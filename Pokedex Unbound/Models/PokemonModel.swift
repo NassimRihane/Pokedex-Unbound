@@ -33,7 +33,7 @@ struct DetailPokemon: Codable {
     let nameFr: String
     let height: Int
     let weight: Int
-    let abilities: [Ability]
+    let abilities: [AbilityEntry]
     let moves: [MoveEntry]
     let sprites: Sprites
     let stats: [Stat]
@@ -47,9 +47,6 @@ struct DetailPokemon: Codable {
         case location_encounters_by_generation
     }
 
-    struct Ability: Codable {
-        let ability: NamedAPIResource
-    }
     
     struct MoveEntry: Codable {
         let move: MoveDetails
@@ -64,6 +61,17 @@ struct DetailPokemon: Codable {
         let power: Int?
         let pp: Int?
         let accuracy: Int?
+    }
+    
+    struct AbilityEntry: Codable {
+        let ability: AbilityDetails
+        let is_hidden: Bool
+        let slot: Int
+    }
+    
+    struct AbilityDetails: Codable {
+        let name: String
+        let description: String
     }
     
     struct Sprites: Codable {
