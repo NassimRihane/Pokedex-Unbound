@@ -21,6 +21,71 @@ enum DisplayMode: String, CaseIterable {
         case .minimal: return "list.bullet"
         }
     }
+    
+    // Order the display modes for the gesture
+    static let ordered: [DisplayMode] = [.minimal, .small, .large]
+    
+    func next() -> DisplayMode{
+        let idx = Self.ordered.firstIndex(of: self) ?? 0
+        let nextIdx = min(idx + 1, Self.ordered.count - 1)
+        return Self.ordered[nextIdx]
+    }
+    
+    func previous() -> DisplayMode{
+        let idx = Self.ordered.firstIndex(of: self) ?? 0
+        let prevIdx = max(idx - 1, 0)
+        return Self.ordered[prevIdx]
+    }
+}
+
+
+// Gesture to navigate between the modes
+struct MagnifyGestureView<Content: View>: View {
+    // Threshold to decide what is a gesture
+    private let threshold: CGFloat
+    private let onPinchIn: () -> Void
+    private let onPinchOut: () -> Void
+    private let content: Content
+    
+    @State private var currentScale: CGFloat = 1.0
+    @State private var isGestureActive: Bool = false // UX improvement
+    
+    init(
+        threshold: CGFloat = 0.15,
+        onPinchIn: @escaping () -> Void,
+        onPinchOut: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.threshold = threshold
+        self.onPinchIn = onPinchIn
+        self.onPinchOut = onPinchOut
+        self.content = content()
+    }
+    
+    var body: some View {
+        content
+            .simultaneousGesture(
+                MagnificationGesture(minimumScaleDelta: 0.0)
+                    .onChanged { value in
+                        currentScale = value
+                        if abs(value-1.0) > 0.08 {
+                            isGestureActive = true
+                        }
+                    }
+                    .onEnded { final in
+                        let delta = final - 1.0
+                        if isGestureActive && abs(delta) > threshold{
+                            if delta > 0 {
+                                onPinchOut()
+                            } else {
+                                onPinchIn()
+                            }
+                        }
+                        currentScale = 1.0
+                        isGestureActive = false
+                    }
+            )
+    }
 }
 
 
@@ -346,118 +411,131 @@ struct ContentView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                
-                if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters || !captureFilters.isEmpty{
-                    ActiveFiltersView(
+        MagnifyGestureView(
+            threshold: 0.12,
+            onPinchIn: {
+                // Gets smaller
+                withAnimation(.snappy) {
+                    displayMode = displayMode.previous()
+                }
+            },
+            onPinchOut: {
+                // Gets bigger
+                withAnimation(.snappy) {
+                    displayMode = displayMode.next()
+                }
+            }
+        ) {
+            NavigationStack {
+                ScrollView {
+                    if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters || !captureFilters.isEmpty {
+                        ActiveFiltersView(
+                            selectedTypes: $selectedTypes,
+                            selectedGens: $selectedGens,
+                            statFilters: $statFilters,
+                            captureFilters: $captureFilters
+                        )
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                    }
+                    
+                    if sortMethod != .id {
+                        HStack {
+                            Image(systemName: sortMethod.icon)
+                                .font(.caption)
+                            Text("Sorted by: \(sortMethod.shortName)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                    }
+                    
+                    switch displayMode {
+                    case .large, .small:
+                        LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
+                            ForEach(filteredAndSortedPokemon) { pokemon in
+                                NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
+                                    if displayMode == .large {
+                                        PokemonView(pokemon: pokemon)
+                                    } else {
+                                        PokemonViewSmall(pokemon: pokemon)
+                                    }
+                                }
+                            }
+                        }
+                        .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
+                        .padding(.horizontal)
+                        
+                    case .minimal:
+                        LazyVStack(spacing: 0) {
+                            ForEach(filteredAndSortedPokemon) { pokemon in
+                                NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
+                                    PokemonViewMinimal(pokemon: pokemon)
+                                }
+                            }
+                        }
+                        .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
+                    }
+                }
+                .navigationTitle("Pokedex")
+                .searchable(text: $vm.searchText)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: {
+                            showFilterSheet = true
+                        }) {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                    .font(.title3)
+                                
+                                let activeCaptureFilters = captureFilters.values.filter { $0 != .none }.count
+                                let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount + activeCaptureFilters
+                                
+                                if totalFilters > 0 {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 16, height: 16)
+                                        .overlay(
+                                            Text("\(totalFilters)")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.white)
+                                        )
+                                        .offset(x: 8, y: -8)
+                                }
+                            }
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Menu {
+                            ForEach(DisplayMode.allCases, id: \.self) { mode in
+                                Button(action: {
+                                    withAnimation {
+                                        displayMode = mode
+                                    }
+                                }) {
+                                    Label(mode.rawValue, systemImage: mode.icon)
+                                    if displayMode == mode {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: displayMode.icon)
+                                .font(.title3)
+                        }
+                    }
+                }
+                .sheet(isPresented: $showFilterSheet) {
+                    FilterSheet(
                         selectedTypes: $selectedTypes,
                         selectedGens: $selectedGens,
                         statFilters: $statFilters,
+                        sortMethod: $sortMethod,
                         captureFilters: $captureFilters
                     )
-                    .padding(.horizontal)
-                    .padding(.top, 8)
                 }
-                
-                if sortMethod != .id {
-                    HStack{
-                        Image(systemName: sortMethod.icon)
-                            .font(.caption)
-                        Text("Sorted by: \(sortMethod.shortName)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 4)
-                }
-                
-                switch displayMode {
-                case .large, .small:
-                    LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
-                        ForEach(filteredAndSortedPokemon) { pokemon in
-                            NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
-                                if displayMode == .large {
-                                    PokemonView(pokemon: pokemon)
-                                } else {
-                                    PokemonViewSmall(pokemon: pokemon)
-                                }
-                            }
-                        }
-                    }
-                    .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
-                    .padding(.horizontal)
-                    
-                case .minimal:
-                    LazyVStack(spacing: 0) {
-                        ForEach(filteredAndSortedPokemon) { pokemon in
-                            NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
-                                PokemonViewMinimal(pokemon: pokemon)
-                            }
-                        }
-                    }
-                    .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
-                }
-            }
-            .navigationTitle("Pokedex")
-            .searchable(text: $vm.searchText)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        showFilterSheet = true
-                    }) {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .font(.title3)
-                            
-                            let activeCaptureFilters = captureFilters.values.filter { $0 != .none}.count
-                            let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount + activeCaptureFilters
-                            
-                            if totalFilters > 0 {
-                                Circle()
-                                    .fill(Color.red)
-                                    .frame(width: 16, height: 16)
-                                    .overlay(
-                                        Text("\(totalFilters)")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.white)
-                                    )
-                                    .offset(x: 8, y: -8)
-                            }
-                        }
-                    }
-                }
-                
-                
-                // On the right: change display mode
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        ForEach(DisplayMode.allCases, id: \.self) { mode in
-                            Button(action: {
-                                withAnimation {
-                                    displayMode = mode
-                                }
-                            }) {
-                                Label(mode.rawValue, systemImage: mode.icon)
-                                if displayMode == mode {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    } label: {
-                        Image(systemName: displayMode.icon)
-                            .font(.title3)
-                    }
-                }
-            }
-            .sheet(isPresented: $showFilterSheet) {
-                FilterSheet(
-                    selectedTypes: $selectedTypes,
-                    selectedGens: $selectedGens,
-                    statFilters: $statFilters,
-                    sortMethod: $sortMethod,
-                    captureFilters: $captureFilters
-                )
             }
         }
         .environmentObject(vm)
@@ -521,11 +599,11 @@ struct PokemonViewMinimal: View {
                 Image(uiImage: spriteImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 40, height: 40)
+                    .frame(width: 30, height: 30)
             } else {
                 Circle()
                     .fill(Color.gray.opacity(0.3))
-                    .frame(width: 40, height: 40)
+                    .frame(width: 30, height: 30)
                     .overlay(
                         Text("?")
                             .font(.caption)
@@ -551,7 +629,7 @@ struct PokemonViewMinimal: View {
                 .foregroundColor(.secondary)
         }
         .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.vertical, 2)
         .background(Color.gray.opacity(0.05))
         .contentShape(Rectangle())
     }
