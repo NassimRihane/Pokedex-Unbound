@@ -427,114 +427,130 @@ struct ContentView: View {
             }
         ) {
             NavigationStack {
-                ScrollView {
-                    if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters || !captureFilters.isEmpty {
-                        ActiveFiltersView(
+                ZStack(alignment: .bottomTrailing){
+                    ScrollView {
+                        if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters || !captureFilters.isEmpty {
+                            ActiveFiltersView(
+                                selectedTypes: $selectedTypes,
+                                selectedGens: $selectedGens,
+                                statFilters: $statFilters,
+                                captureFilters: $captureFilters
+                            )
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                        }
+                        
+                        if sortMethod != .id {
+                            HStack {
+                                Image(systemName: sortMethod.icon)
+                                    .font(.caption)
+                                Text("Sorted by: \(sortMethod.shortName)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 4)
+                        }
+                        
+                        switch displayMode {
+                        case .large, .small:
+                            LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
+                                ForEach(filteredAndSortedPokemon) { pokemon in
+                                    NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
+                                        if displayMode == .large {
+                                            PokemonView(pokemon: pokemon)
+                                        } else {
+                                            PokemonViewSmall(pokemon: pokemon)
+                                        }
+                                    }
+                                }
+                            }
+                            .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
+                            .padding(.horizontal)
+                            
+                        case .minimal:
+                            LazyVStack(spacing: 0) {
+                                ForEach(filteredAndSortedPokemon) { pokemon in
+                                    NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
+                                        PokemonViewMinimal(pokemon: pokemon)
+                                    }
+                                }
+                            }
+                            .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
+                        }
+                    }
+                    .navigationTitle("Pokedex")
+                    .searchable(text: $vm.searchText)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: {
+                                showFilterSheet = true
+                            }) {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(systemName: "line.3.horizontal.decrease.circle")
+                                        .font(.title3)
+                                    
+                                    let activeCaptureFilters = captureFilters.values.filter { $0 != .none }.count
+                                    let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount + activeCaptureFilters
+                                    
+                                    if totalFilters > 0 {
+                                        Circle()
+                                            .fill(Color.red)
+                                            .frame(width: 16, height: 16)
+                                            .overlay(
+                                                Text("\(totalFilters)")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            )
+                                            .offset(x: 8, y: -8)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Menu {
+                                ForEach(DisplayMode.allCases, id: \.self) { mode in
+                                    Button(action: {
+                                        withAnimation {
+                                            displayMode = mode
+                                        }
+                                    }) {
+                                        Label(mode.rawValue, systemImage: mode.icon)
+                                        if displayMode == mode {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: displayMode.icon)
+                                    .font(.title3)
+                            }
+                        }
+                    }
+                    .sheet(isPresented: $showFilterSheet) {
+                        FilterSheet(
                             selectedTypes: $selectedTypes,
                             selectedGens: $selectedGens,
                             statFilters: $statFilters,
+                            sortMethod: $sortMethod,
                             captureFilters: $captureFilters
                         )
-                        .padding(.horizontal)
-                        .padding(.top, 8)
                     }
                     
-                    if sortMethod != .id {
-                        HStack {
-                            Image(systemName: sortMethod.icon)
-                                .font(.caption)
-                            Text("Sorted by: \(sortMethod.shortName)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 4)
-                    }
-                    
-                    switch displayMode {
-                    case .large, .small:
-                        LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
-                            ForEach(filteredAndSortedPokemon) { pokemon in
-                                NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
-                                    if displayMode == .large {
-                                        PokemonView(pokemon: pokemon)
-                                    } else {
-                                        PokemonViewSmall(pokemon: pokemon)
-                                    }
-                                }
-                            }
-                        }
-                        .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
-                        .padding(.horizontal)
-                        
-                    case .minimal:
-                        LazyVStack(spacing: 0) {
-                            ForEach(filteredAndSortedPokemon) { pokemon in
-                                NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
-                                    PokemonViewMinimal(pokemon: pokemon)
-                                }
-                            }
-                        }
-                        .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
-                    }
-                }
-                .navigationTitle("Pokedex")
-                .searchable(text: $vm.searchText)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: {
-                            showFilterSheet = true
-                        }) {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                                    .font(.title3)
-                                
-                                let activeCaptureFilters = captureFilters.values.filter { $0 != .none }.count
-                                let totalFilters = selectedTypes.count + selectedGens.count + statFilters.activeCount + activeCaptureFilters
-                                
-                                if totalFilters > 0 {
-                                    Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 16, height: 16)
-                                        .overlay(
-                                            Text("\(totalFilters)")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.white)
-                                        )
-                                        .offset(x: 8, y: -8)
-                                }
-                            }
+                    NavigationLink(destination: PokemonComparisonView()) {
+                        ZStack {
+                            Circle()
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.3), radius: 8, x:0, y:4)
+                            
+                            Image(systemName: "arrow.left.arrow.right")
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundStyle(.white)
                         }
                     }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Menu {
-                            ForEach(DisplayMode.allCases, id: \.self) { mode in
-                                Button(action: {
-                                    withAnimation {
-                                        displayMode = mode
-                                    }
-                                }) {
-                                    Label(mode.rawValue, systemImage: mode.icon)
-                                    if displayMode == mode {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: displayMode.icon)
-                                .font(.title3)
-                        }
-                    }
-                }
-                .sheet(isPresented: $showFilterSheet) {
-                    FilterSheet(
-                        selectedTypes: $selectedTypes,
-                        selectedGens: $selectedGens,
-                        statFilters: $statFilters,
-                        sortMethod: $sortMethod,
-                        captureFilters: $captureFilters
-                    )
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
                 }
             }
         }
