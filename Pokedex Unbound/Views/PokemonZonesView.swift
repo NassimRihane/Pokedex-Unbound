@@ -279,11 +279,11 @@ struct LocationCard: View {
 
                             if let minLevel = encounter.min_level, let maxLevel = encounter.max_level{
                                 if minLevel == maxLevel {
-                                    Text("Lv.\(String(describing: encounter.min_level))")
+                                    Text("Lv.\(minLevel)")
                                         .font(.caption)
                                         .fontWeight(.semibold)
                                 } else {
-                                    Text("Lv.\(String(describing: encounter.min_level))-\(String(describing:encounter.max_level))")
+                                    Text("Lv.\(minLevel)-\(maxLevel)")
                                         .font(.caption)
                                         .fontWeight(.semibold)
                                 }
