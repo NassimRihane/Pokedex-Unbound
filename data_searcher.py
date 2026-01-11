@@ -2,10 +2,13 @@ import requests
 import json
 import os
 import time
+from pathlib import Path
 from collections import defaultdict
 
 # === Configuration ===
-OUTPUT_DIR = "pokemon_data"
+SCRIPT_DIR = Path(__file__).parent.absolute()
+PROJECT_DATA_DIR = SCRIPT_DIR / "Pokedex Unbound" / "Data" / "pokemon_data"
+
 START_ID = 1
 MAX_ID = 905
 
@@ -53,6 +56,12 @@ VERSION_TO_GENERATION = {
     # Fan Games
     "unbound": "Fan Games"
 }
+
+def ensure_output_directory():
+    PROJECT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Output folder: {PROJECT_DATA_DIR}")
+    print(f"   {'✓ Already exists' if PROJECT_DATA_DIR.exists() else '✓ Created'}")
+    print()
 
 def get_ability_description(ability_url):
     """
@@ -224,7 +233,7 @@ def update_pokemon_data(pokemon_id):
     # Find the existing file
     pattern = f"{pokemon_id:03d}_"
     filename = None
-    for fname in os.listdir(OUTPUT_DIR):
+    for fname in os.listdir(PROJECT_DATA_DIR):
         if fname.startswith(pattern) and fname.endswith(".json"):
             filename = fname
             break
@@ -233,7 +242,7 @@ def update_pokemon_data(pokemon_id):
         print(f"  ! File not found for ID {pokemon_id}")
         return False
     
-    filepath = os.path.join(OUTPUT_DIR, filename)
+    filepath = PROJECT_DATA_DIR / filename
     
     # Load the existing JSON
     with open(filepath, "r", encoding="utf-8") as f:
@@ -299,31 +308,43 @@ def update_pokemon_data(pokemon_id):
         print(f"  x Error updating data: {e}")
         return False
 
-# === Main loop ===
-print(f"Updating Pokemon data from ID {START_ID} to {MAX_ID}")
-print("-" * 50)
-
-success_count = 0
-error_count = 0
-
-for pokemon_id in range(START_ID, MAX_ID + 1):
-    try:
-        print(f"Processing Pokémon {pokemon_id}...")
-        
-        if update_pokemon_data(pokemon_id):
-            success_count += 1
-        else:
+# === Main execution ===
+if __name__ == "__main__":
+    print("=" * 60)
+    print("🎮 POKEMON DATA UPDATER")
+    print("=" * 60)
+    print()
+    
+    # Ensure output directory exists
+    ensure_output_directory()
+    
+    print(f"Updating Pokemon data from ID {START_ID} to {MAX_ID}")
+    print("-" * 60)
+    
+    success_count = 0
+    error_count = 0
+    
+    for pokemon_id in range(START_ID, MAX_ID + 1):
+        try:
+            print(f"Processing Pokémon {pokemon_id}...")
+            
+            if update_pokemon_data(pokemon_id):
+                success_count += 1
+            else:
+                error_count += 1
+            
+            # Pause to avoid overloading the API
+            #time.sleep(0.5)
+            
+        except Exception as e:
+            print(f"x Error for Pokémon {pokemon_id}: {e}")
             error_count += 1
-        
-        # Pause to avoid overloading the API
-        #time.sleep(0.5)  # Augmenté pour les appels supplémentaires
-        
-    except Exception as e:
-        print(f"x Error for Pokémon {pokemon_id}: {e}")
-        error_count += 1
-        continue
-
-print("-" * 50)
-print(f"✓ Update finished!")
-print(f"   Success: {success_count}")
-print(f"   Errors: {error_count}")
+            continue
+    
+    print("-" * 60)
+    print("=" * 60)
+    print(f"✓ UPDATE FINISHED!")
+    print(f"   Success: {success_count}")
+    print(f"   Errors: {error_count}")
+    print(f"   Location: {PROJECT_DATA_DIR}")
+    print("=" * 60)

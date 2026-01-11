@@ -1,6 +1,6 @@
 # Ignore the Data folder (sprites et JSON)
-Data/
-Pokedex Unbound/Data/
+Data/pokemon_data/*.json
+Data/sprites/*.png
 
 # Data getter
 /data_unbound.py
