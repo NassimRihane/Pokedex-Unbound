@@ -5,6 +5,9 @@
 //  Created by Nassim Rihane on 09/01/2026.
 //
 
+
+// The "print" functions are there for debug, they are commented out
+
 import SwiftUI
 
 struct PokemonComparisonView: View {
@@ -22,18 +25,66 @@ struct PokemonComparisonView: View {
     @State private var isRightSearching: Bool = false
     
     var leftFilteredPokemon: [Pokemon] {
-        guard !leftSearchText.isEmpty else { return [] }
-        let filtered = vm.pokemonList.filter { pokemon in
-            pokemon.name.lowercased().contains(leftSearchText.lowercased())
+        guard !leftSearchText.isEmpty else {
+            //print("left search empty")
+            return []
         }
+        
+        let searchLower = leftSearchText.lowercased()
+        
+        let filtered = vm.pokemonList.filter { pokemon in
+            if pokemon.name.lowercased().contains(searchLower){
+                return true
+            }
+            
+            let translatedNames = vm.getTranslatedNames(for: pokemon)
+            
+            if let nameJp = translatedNames.nameJp,
+               nameJp.lowercased().contains(searchLower){
+                return true
+            }
+            
+            if let nameFr = translatedNames.nameFr,
+               nameFr.lowercased().contains(searchLower){
+                return true
+            }
+            
+            return false
+            
+        }
+        //print("Left filtered: \(filtered.count) results for '\(leftSearchText)'")
         return Array(filtered.prefix(10))
     }
     
     var rightFilteredPokemon: [Pokemon] {
-        guard !rightSearchText.isEmpty else { return [] }
-        let filtered = vm.pokemonList.filter { pokemon in
-            pokemon.name.lowercased().contains(rightSearchText.lowercased())
+        guard !rightSearchText.isEmpty else {
+            //print("right search empty")
+            return []
         }
+        
+        let searchLower = rightSearchText.lowercased()
+        
+        let filtered = vm.pokemonList.filter { pokemon in
+            if pokemon.name.lowercased().contains(searchLower){
+                return true
+            }
+            
+            let translatedNames = vm.getTranslatedNames(for: pokemon)
+            
+            if let nameJp = translatedNames.nameJp,
+               nameJp.lowercased().contains(searchLower){
+                return true
+            }
+            
+            if let nameFr = translatedNames.nameFr,
+               nameFr.lowercased().contains(searchLower){
+                return true
+            }
+            
+            return false
+            
+        }
+        //print("Right filtered: \(filtered.count) results for '\(rightSearchText)'")
         return Array(filtered.prefix(10))
     }
     
@@ -110,7 +161,7 @@ struct PokemonComparisonView: View {
                     rightDetails = details
                 }
             } catch {
-                print("Decoding error for \(fileName): \(error)")
+                //print("Decoding error for \(fileName): \(error)")
             }
         }
     }
@@ -131,6 +182,8 @@ struct PokemonComparisonSide: View {
     let onSelect: (Pokemon) -> Void
     let onClear: () -> Void
     
+    @FocusState private var isTextFieldFocused: Bool
+    
     var body: some View {
         ScrollView{
             VStack(spacing: 16) {
@@ -141,14 +194,28 @@ struct PokemonComparisonSide: View {
                         
                         TextField("Search Pokemon", text: $searchText)
                             .textFieldStyle(.plain)
-                            .onTapGesture {
-                                isSearching = true
+                            .onChange(of: searchText) { oldValue, newValue in
+                                //print("Search text changed to: '\(newValue)', isSearching: \(isSearching)")
+                                if !newValue.isEmpty {
+                                    isSearching = true
+                                }
+                            }
+                            .onChange(of: isTextFieldFocused) { oldValue, newValue in
+                                //print("Focus changed to: \(newValue)")
+                                if newValue && !searchText.isEmpty {
+                                    isSearching = true
+                                }
+                            }
+                            .onSubmit {
+                                isSearching = false
+                                isTextFieldFocused = false
                             }
                         
                         if !searchText.isEmpty {
                             Button(action: {
                                 searchText = ""
                                 isSearching = false
+                                isTextFieldFocused = false
                             }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundStyle(.secondary)
@@ -160,8 +227,7 @@ struct PokemonComparisonSide: View {
                     .cornerRadius(10)
                     .padding(.horizontal, 12)
                     
-                    if isSearching && !filteredPokemon.isEmpty {
-                        VStack(spacing: 0) {
+                    if isSearching && !filteredPokemon.isEmpty && !searchText.isEmpty {                        VStack(spacing: 0) {
                             ForEach(filteredPokemon) { pkmn in
                                 Button(action: {
                                     onSelect(pkmn)
@@ -232,13 +298,6 @@ struct PokemonComparisonSide: View {
                         
                         if let details = details {
                             VStack(spacing: 12) {
-                                HStack(spacing: 5) {
-                                    ForEach(details.types.sorted(by: { $0.slot < $1.slot }), id: \.type.name) { typeInfo in
-                                        TypeImageView(typeName: typeInfo.type.name)
-                                            .frame(height: 35)
-                                    }
-                                }
-                                
                                 VStack(alignment: .leading, spacing: 8) {
                                     ForEach(details.stats, id: \.stat.name) { stat in
                                         CompactStatBarView(
@@ -310,11 +369,11 @@ struct CompactStatBarView: View{
     private var displayName: String{
         switch statName.lowercased(){
         case "hp": return "HP"
-        case "attack": return "Attack"
-        case "defense": return "Defense"
-        case "special-attack": return "Sp. Atk"
-        case "special-defense": return "Sp. Def"
-        case "speed": return "Speed"
+        case "attack": return "Att"
+        case "defense": return "Def"
+        case "special-attack": return "Sp.A"
+        case "special-defense": return "Sp.D"
+        case "speed": return "Spd"
         default: return statName.capitalized
         }
     }
@@ -397,53 +456,38 @@ struct CompactStatBarView: View{
         }
     }
     
-    // Label to display stat quality
-    private var rankLabel: String{
-        let percent = Int(percentile * 100)
-        switch percentile {
-        case 0..<0.25: return "Bad"
-        case 0.25..<0.5: return "Average"
-        case 0.5..<0.75: return "Good"
-        case 0.75..<0.9: return "Great"
-        case 0.9..<0.95: return "Excellent"
-        default: return "Top \(100 - percent)%"
-        }
-    }
-    
     
     var body: some View{
         VStack(alignment: .leading, spacing: 4){
             HStack{
                 Text(displayName)
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(width: 80, alignment: .leading)
+                    .font(.caption)
+                    .frame(width: 30, alignment: .leading)
                 
-                Text("\(value)")
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .frame(width: 40, alignment: .trailing)
                 
                 GeometryReader{ geometry in
                     ZStack(alignment: .leading){
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 3)
                             .fill(Color.gray.opacity(0.2))
-                            .frame(height: 20)
+                            .frame(height: 12)
                         
                         RoundedRectangle(cornerRadius: 4)
                             .fill(barColor)
                             .frame(
                                 width: geometry.size.width * CGFloat(percentile),
-                                height: 20
+                                height: 12
                             )
                             .animation(.easeInOut(duration: 0.5), value: value)
                     }
                 }
                 
-                Text(rankLabel)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(barColor)
-                    .frame(width: 60, alignment: .leading)
+                Text("\(value)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .frame(width: 25, alignment: .trailing)
+                
             }
-            .frame(height: 20)
+            .frame(height: 12)
         }
     }
 }

@@ -541,12 +541,14 @@ struct ContentView: View {
                     NavigationLink(destination: PokemonComparisonView()) {
                         ZStack {
                             Circle()
+                                .fill(Color.black.opacity(0.8))
                                 .frame(width: 60, height: 60)
                                 .shadow(color: .black.opacity(0.3), radius: 8, x:0, y:4)
                             
                             Image(systemName: "arrow.left.arrow.right")
                                 .font(.system(size: 24, weight: .semibold))
                                 .foregroundStyle(.white)
+                                .backgroundStyle(.black.opacity(0.1))
                         }
                     }
                     .padding(.trailing, 20)

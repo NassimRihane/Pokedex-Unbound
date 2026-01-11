@@ -78,7 +78,7 @@ final class ViewModel: ObservableObject {
         return string
     }
     
-    private func getTranslatedNames(for pokemon: Pokemon) -> (nameJp: String?, nameFr: String?){
+    func getTranslatedNames(for pokemon: Pokemon) -> (nameJp: String?, nameFr: String?){
         let key = pokemon.name
         
         if let cached = translatedNamesCache[key]{
