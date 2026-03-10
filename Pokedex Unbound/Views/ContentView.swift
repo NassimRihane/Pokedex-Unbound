@@ -899,8 +899,9 @@ struct FilterSheet: View {
                         selectedGens.removeAll()
                         statFilters.reset()
                         sortMethod = .id
+                        captureFilters.removeAll()
                     }
-                    .disabled(selectedTypes.isEmpty && selectedGens.isEmpty && !statFilters.hasActiveFilters)
+                    .disabled(selectedTypes.isEmpty && selectedGens.isEmpty && !statFilters.hasActiveFilters && captureFilters.isEmpty)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing){
@@ -1084,6 +1085,18 @@ struct ActiveFiltersView: View{
                         color: .purple,
                         onRemove: { statFilters.speed = 0 }
                     )
+                }
+                
+                ForEach(Array(captureFilters.keys).sorted(by: {$0.displayName < $1.displayName}), id:\.self) {game in
+                    if let state = captureFilters[game], state != .none {
+                        FilterBadge(
+                            text: "\(game.shortName): \(state.shortName)",
+                            color: state.color,
+                            onRemove: {
+                                captureFilters.removeValue(forKey: game)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -1319,6 +1332,14 @@ enum CaptureFilterState: Equatable{
         case .notCaught: return .red
         }
     }
+    
+    var shortName: String {
+         switch self {
+         case .none: return ""
+         case .caught: return "✓"
+         case .notCaught: return "✗"
+         }
+     }
 }
 
 

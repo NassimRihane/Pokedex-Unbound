@@ -95,6 +95,42 @@ enum PokemonGame: String, CaseIterable, Identifiable{
         case .unbound: return 0
         }
     }
+    
+    var shortName: String {
+        switch self {
+        case .red: return "R"
+        case .blue: return "B"
+        case .yellow: return "Y"
+        case .gold: return "G"
+        case .silver: return "S"
+        case .crystal: return "C"
+        case .ruby: return "Rb"
+        case .sapphire: return "Sa"
+        case .emerald: return "E"
+        case .firered: return "FR"
+        case .leafgreen: return "LG"
+        case .diamond: return "D"
+        case .pearl: return "P"
+        case .platinum: return "Pt"
+        case .heartgold: return "HG"
+        case .soulsilver: return "SS"
+        case .black: return "B"
+        case .white: return "W"
+        case .black2: return "B2"
+        case .white2: return "W2"
+        case .x: return "X"
+        case .y: return "Y"
+        case .omegaRuby: return "OR"
+        case .alphaSapphire: return "AS"
+        case .sun: return "S"
+        case .moon: return "M"
+        case .ultraSun: return "US"
+        case .ultraMoon: return "UM"
+        case .sword: return "Sw"
+        case .shield: return "Sh"
+        case .unbound: return "UB"
+        }
+    }
 }
 
 

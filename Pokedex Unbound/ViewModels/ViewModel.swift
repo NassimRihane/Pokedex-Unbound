@@ -185,8 +185,8 @@ final class ViewModel: ObservableObject {
             case "hp": hp = stat.base_stat
             case "attack": attack = stat.base_stat
             case "defense": defense = stat.base_stat
-            case "specialAttack": specialAttack = stat.base_stat
-            case "specialDefense": specialDefense = stat.base_stat
+            case "special-attack": specialAttack = stat.base_stat
+            case "special-defense": specialDefense = stat.base_stat
             case "speed": speed = stat.base_stat
             default: break
             }
