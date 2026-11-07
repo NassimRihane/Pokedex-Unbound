@@ -33,7 +33,7 @@ struct PokemonComparisonView: View {
         let searchLower = leftSearchText.lowercased()
         
         let filtered = vm.pokemonList.filter { pokemon in
-            if pokemon.name.lowercased().contains(searchLower){
+            if pokemon.name.lowercased().contains(searchLower) || pokemon.displayName.lowercased().contains(searchLower){
                 return true
             }
             
@@ -65,7 +65,7 @@ struct PokemonComparisonView: View {
         let searchLower = rightSearchText.lowercased()
         
         let filtered = vm.pokemonList.filter { pokemon in
-            if pokemon.name.lowercased().contains(searchLower){
+            if pokemon.name.lowercased().contains(searchLower) || pokemon.displayName.lowercased().contains(searchLower){
                 return true
             }
             
@@ -147,9 +147,7 @@ struct PokemonComparisonView: View {
     }
     
     private func loadDetails(for pokemon: Pokemon, side: ComparisonSide) {
-        let index = vm.getPokemonIndex(pokemon: pokemon)
-        let formattedIndex = String(format: "%03d", index)
-        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        let fileName = pokemon.fileName
         
         if let url = Bundle.main.url(forResource: fileName, withExtension: "json"),
            let data = try? Data(contentsOf: url) {
@@ -240,11 +238,11 @@ struct PokemonComparisonSide: View {
                                                 .frame(width: 25, height: 25)
                                         }
                                         
-                                        Text("#\(String(format: "%03d", vm.getPokemonIndex(pokemon: pkmn)))")
+                                        Text(pkmn.formattedDexNumber)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         
-                                        Text(pkmn.name.capitalized)
+                                        Text(pkmn.displayName)
                                             .font(.subheadline)
                                             .foregroundStyle(.primary)
                                         
@@ -287,11 +285,11 @@ struct PokemonComparisonSide: View {
                         }
                         
                         VStack(spacing: 4) {
-                            Text("#\(String(format: "%03d", vm.getPokemonIndex(pokemon: pokemon)))")
+                            Text(pokemon.formattedDexNumber)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
-                            Text(pokemon.name.capitalized)
+                            Text(pokemon.displayName)
                                 .font(.title3)
                                 .fontWeight(.bold)
                         }
@@ -347,9 +345,7 @@ struct PokemonComparisonSide: View {
     }
     
     private func loadLocalSprite(for pokemon: Pokemon) -> UIImage? {
-        let index = vm.getPokemonIndex(pokemon: pokemon)
-        let formattedIndex = String(format: "%03d", index)
-        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        let fileName = pokemon.fileName
         
         if let url = Bundle.main.url(forResource: fileName, withExtension: "png"),
            let imageData = try? Data(contentsOf: url),

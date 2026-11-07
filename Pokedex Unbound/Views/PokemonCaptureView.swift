@@ -46,7 +46,7 @@ enum PokemonGame: String, CaseIterable, Identifiable{
         case .sun: return "Sun"
         case .moon: return "Moon"
         case .ultraSun: return "Ultra Sun"
-        case .ultraMoon: return "Ulra Moon"
+        case .ultraMoon: return "Ultra Moon"
         case .sword: return "Sword"
         case .shield: return "Shield"
         case .unbound: return "Unbound"
@@ -148,19 +148,9 @@ struct PokemonCaptureView: View {
     }
     
     // A Pokemon can be caught only from its introduction generation
+    // (a regional form has its own, e.g. 7 for Alolan forms)
     private var introductionGeneration: Int{
-        let pokemonId = vm.extractIDFromURL(pokemon.url)
-        switch pokemonId{
-        case 1...151: return 1
-        case 52...251: return 2
-        case 252...386: return 3
-        case 387...494: return 4
-        case 495...649: return 5
-        case 650...721: return 6
-        case 722...809: return 7
-        case 810...905: return 8
-        default: return 1
-        }
+        return max(pokemon.generation, 1)
     }
     
     private var availableGames: [PokemonGame]{

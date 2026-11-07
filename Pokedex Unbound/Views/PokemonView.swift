@@ -33,7 +33,7 @@ struct PokemonView: View {
                 }
             }
             
-            Text("\(pokemon.name.capitalized)")
+            Text(pokemon.displayName)
                 .font(.system(size: 16, weight: .regular, design: .monospaced))
                 .padding(.bottom, 20)
         }
@@ -41,9 +41,7 @@ struct PokemonView: View {
     
     func loadLocalSprite(for pokemon: Pokemon) -> UIImage? {
 
-        let index = vm.getPokemonIndex(pokemon: pokemon)
-        let formattedIndex = String(format: "%03d", index)
-        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        let fileName = pokemon.fileName
         
         if let url = Bundle.main.url(forResource: fileName, withExtension: "png"),
            let imageData = try? Data(contentsOf: url),

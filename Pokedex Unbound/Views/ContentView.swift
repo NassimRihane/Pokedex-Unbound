@@ -308,9 +308,9 @@ struct ContentView: View {
         
         if !selectedGens.isEmpty{
             filtered = filtered.filter{ pokemon in
-                let pokemonId = vm.extractIDFromURL(pokemon.url)
+                // A regional form belongs to the generation that introduced it (e.g. Alolan Vulpix -> VII)
                 return selectedGens.contains{ gen in
-                    gen.idRange.contains(pokemonId)
+                    gen.rawValue == pokemon.generation
                 }
             }
         }
@@ -352,10 +352,10 @@ struct ContentView: View {
     private func sortPokemon(_ pokemon: [Pokemon], by method: SortMethod) -> [Pokemon] {
         switch method {
         case .id:
-            return pokemon.sorted {vm.extractIDFromURL($0.url) < vm.extractIDFromURL($1.url)}
+            return pokemon.sorted {($0.dexNumber, $0.fileName) < ($1.dexNumber, $1.fileName)}
             
         case .name:
-            return pokemon.sorted {$0.name < $1.name}
+            return pokemon.sorted {$0.displayName < $1.displayName}
             
         case .hp(let ascending):
             return pokemon.sorted{
@@ -429,6 +429,9 @@ struct ContentView: View {
             NavigationStack {
                 ZStack(alignment: .bottomTrailing){
                     ScrollView {
+                        // Computed once per render: used by the grid/list and by the animation
+                        let displayedPokemon = filteredAndSortedPokemon
+                        
                         if !selectedTypes.isEmpty || !selectedGens.isEmpty || statFilters.hasActiveFilters || !captureFilters.isEmpty {
                             ActiveFiltersView(
                                 selectedTypes: $selectedTypes,
@@ -455,7 +458,7 @@ struct ContentView: View {
                         switch displayMode {
                         case .large, .small:
                             LazyVGrid(columns: columns, spacing: displayMode == .large ? 10 : 5) {
-                                ForEach(filteredAndSortedPokemon) { pokemon in
+                                ForEach(displayedPokemon) { pokemon in
                                     NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
                                         if displayMode == .large {
                                             PokemonView(pokemon: pokemon)
@@ -465,18 +468,18 @@ struct ContentView: View {
                                     }
                                 }
                             }
-                            .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
+                            .animation(.easeIn(duration: 0.3), value: displayedPokemon.count)
                             .padding(.horizontal)
                             
                         case .minimal:
                             LazyVStack(spacing: 0) {
-                                ForEach(filteredAndSortedPokemon) { pokemon in
+                                ForEach(displayedPokemon) { pokemon in
                                     NavigationLink(destination: PokemonTabView(pokemon: pokemon)) {
                                         PokemonViewMinimal(pokemon: pokemon)
                                     }
                                 }
                             }
-                            .animation(.easeIn(duration: 0.3), value: filteredAndSortedPokemon.count)
+                            .animation(.easeIn(duration: 0.3), value: displayedPokemon.count)
                         }
                     }
                     .navigationTitle("Pokedex")
@@ -584,7 +587,7 @@ struct PokemonViewSmall: View {
                 }
             }
             
-            Text(pokemon.name.capitalized)
+            Text(pokemon.displayName)
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
                 .lineLimit(1)
                 .padding(.bottom, 8)
@@ -592,9 +595,7 @@ struct PokemonViewSmall: View {
     }
     
     private func loadLocalSprite(for pokemon: Pokemon) -> UIImage? {
-        let index = vm.getPokemonIndex(pokemon: pokemon)
-        let formattedIndex = String(format: "%03d", index)
-        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        let fileName = pokemon.fileName
         
         if let url = Bundle.main.url(forResource: fileName, withExtension: "png"),
            let imageData = try? Data(contentsOf: url),
@@ -631,11 +632,11 @@ struct PokemonViewMinimal: View {
             
             // ID and name
             HStack {
-                Text("#\(String(format: "%03d", vm.getPokemonIndex(pokemon: pokemon)))")
+                Text(pokemon.formattedDexNumber)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(.secondary)
                 
-                Text(pokemon.name.capitalized)
+                Text(pokemon.displayName)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.primary)
             }
@@ -653,9 +654,7 @@ struct PokemonViewMinimal: View {
     }
     
     private func loadLocalSprite(for pokemon: Pokemon) -> UIImage? {
-        let index = vm.getPokemonIndex(pokemon: pokemon)
-        let formattedIndex = String(format: "%03d", index)
-        let fileName = "\(formattedIndex)_\(pokemon.name.lowercased())"
+        let fileName = pokemon.fileName
         
         if let url = Bundle.main.url(forResource: fileName, withExtension: "png"),
            let imageData = try? Data(contentsOf: url),

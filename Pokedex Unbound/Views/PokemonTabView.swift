@@ -30,12 +30,18 @@ struct PokemonTabView: View {
                 PokemonCaptureView(pokemon: pokemon)
             }
         }
-        .navigationTitle(pokemon.name.capitalized)
+        .navigationTitle(pokemon.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .id(pokemon.name)
         .task(id: pokemon.id){
             vm.clearPokemonDetails()
             vm.loadLocalDetails(for: pokemon)
+        }
+        .onAppear{
+            // Coming back from an evolution page: the shared details belong to another Pokemon
+            if let details = vm.pokemonDetails, details.name != pokemon.name {
+                vm.loadLocalDetails(for: pokemon)
+            }
         }
     }
 }

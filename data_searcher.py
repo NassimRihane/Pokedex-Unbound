@@ -225,24 +225,24 @@ def process_encounters(encounter_data):
     
     return result if result else {"message": "No encounter data available"}
 
-def update_pokemon_data(pokemon_id):
+def pokemon_files():
     """
-    Update encounter data and ability descriptions for existing Pokemon
+    All the Pokemon files between START_ID and MAX_ID, sorted.
+    Several files can share the same number (regional forms: 037_vulpix, 037_vulpix-alola),
+    so the files are listed instead of being searched by number.
+    """
+    files = []
+    for fname in sorted(os.listdir(PROJECT_DATA_DIR)):
+        prefix = fname.split("_", 1)[0]
+        if fname.endswith(".json") and "_" in fname and prefix.isdigit() and START_ID <= int(prefix) <= MAX_ID:
+            files.append(PROJECT_DATA_DIR / fname)
+    return files
+
+def update_pokemon_data(filepath):
+    """
+    Update encounter data and ability descriptions for an existing Pokemon file
     Only updates fields that are missing or need updating
     """
-    # Find the existing file
-    pattern = f"{pokemon_id:03d}_"
-    filename = None
-    for fname in os.listdir(PROJECT_DATA_DIR):
-        if fname.startswith(pattern) and fname.endswith(".json"):
-            filename = fname
-            break
-    
-    if not filename:
-        print(f"  ! File not found for ID {pokemon_id}")
-        return False
-    
-    filepath = PROJECT_DATA_DIR / filename
     
     # Load the existing JSON
     with open(filepath, "r", encoding="utf-8") as f:
@@ -324,11 +324,11 @@ if __name__ == "__main__":
     success_count = 0
     error_count = 0
     
-    for pokemon_id in range(START_ID, MAX_ID + 1):
+    for filepath in pokemon_files():
         try:
-            print(f"Processing Pokémon {pokemon_id}...")
+            print(f"Processing {filepath.name}...")
             
-            if update_pokemon_data(pokemon_id):
+            if update_pokemon_data(filepath):
                 success_count += 1
             else:
                 error_count += 1
@@ -337,7 +337,7 @@ if __name__ == "__main__":
             #time.sleep(0.5)
             
         except Exception as e:
-            print(f"x Error for Pokémon {pokemon_id}: {e}")
+            print(f"x Error for {filepath.name}: {e}")
             error_count += 1
             continue
     

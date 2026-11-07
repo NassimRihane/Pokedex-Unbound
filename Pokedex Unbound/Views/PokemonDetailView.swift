@@ -22,12 +22,12 @@ struct PokemonDetailView: View {
                 if let details = vm.pokemonDetails {
                     VStack(spacing: 10) {
                         HStack(spacing:20){
-                            InfoCard(label:"English", value: "\(pokemon.name.capitalized)")
+                            InfoCard(label:"English", value: details.nameEn ?? pokemon.displayName)
                             InfoCard(label:"Japanese", value: "\(details.nameJp)")
                             InfoCard(label:"French", value: "\(details.nameFr)")
                         }
                         HStack(spacing: 30){
-                            InfoCard(label:"ID", value: "\(details.id)")
+                            InfoCard(label:"ID", value: "\(pokemon.dexNumber)")
                             InfoCard(label:"Height", value: "\(vm.formatHW(value: details.height)) m")
                             InfoCard(label:"Weight", value: "\(vm.formatHW(value: details.weight)) kg")
                         }
@@ -72,6 +72,11 @@ struct PokemonDetailView: View {
                         .padding()
                         .background(Color.gray.opacity(0.1))
                         .cornerRadius(12)
+                        
+                        // Evolution chain (absent from files built before data_fetcher.py)
+                        if let chain = details.evolution_chain {
+                            EvolutionChainView(chain: chain, current: pokemon)
+                        }
                     }
                     .padding()
                 } else{
@@ -346,5 +351,109 @@ struct TypeImageView: View{
         
         print("Type \(fileName).png image not found")
         return nil
+    }
+}
+
+
+// Evolution chain section
+
+struct EvolutionChainView: View {
+    @EnvironmentObject var vm: ViewModel
+    let chain: [EvolutionNode]
+    let current: Pokemon
+    
+    // The tree flattened into rows: each stage with its depth (0 = first stage)
+    private var rows: [(node: EvolutionNode, depth: Int)] {
+        var result: [(node: EvolutionNode, depth: Int)] = []
+        func visit(_ node: EvolutionNode, depth: Int) {
+            result.append((node, depth))
+            for child in node.evolves_to {
+                visit(child, depth: depth + 1)
+            }
+        }
+        chain.forEach { visit($0, depth: 0) }
+        return result
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8){
+            Text("Evolution")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding(.bottom, 5)
+            
+            if chain.isEmpty {
+                Text("This Pokemon does not evolve")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(rows, id: \.node.id){ row in
+                    if row.node.file != current.fileName,
+                       let target = vm.pokemon(forFile: row.node.file) {
+                        NavigationLink(destination: PokemonTabView(pokemon: target)) {
+                            EvolutionRow(node: row.node, depth: row.depth, pokemon: target, isCurrent: false)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        EvolutionRow(node: row.node, depth: row.depth, pokemon: vm.pokemon(forFile: row.node.file), isCurrent: row.node.file == current.fileName)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
+    }
+}
+
+struct EvolutionRow: View {
+    let node: EvolutionNode
+    let depth: Int
+    let pokemon: Pokemon?
+    let isCurrent: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2){
+            // How the previous stage evolves into this one
+            if let condition = node.condition, depth > 0 {
+                Label(condition.isEmpty ? "Evolves" : condition, systemImage: "arrow.turn.down.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            HStack(spacing: 12){
+                if let sprite = Bundle.main.image(file: node.file) {
+                    Image(uiImage: sprite)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 48, height: 48)
+                } else {
+                    Circle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 48, height: 48)
+                }
+                
+                Text(String(format: "#%03d", node.dex))
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                
+                Text(pokemon?.displayName ?? node.name.capitalized)
+                    .font(.system(size: 16, weight: isCurrent ? .bold : .medium))
+                
+                Spacer()
+                
+                if !isCurrent && pokemon != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(6)
+            .background(isCurrent ? Color.accentColor.opacity(0.15) : Color.clear)
+            .cornerRadius(8)
+        }
+        .padding(.leading, CGFloat(depth) * 20)
+        .contentShape(Rectangle())
     }
 }

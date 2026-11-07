@@ -1,0 +1,8 @@
+# PokeAPI responses cached by data_fetcher.py
+.api_cache/
+
+# Python
+__pycache__/
+
+# macOS
+.DS_Store
